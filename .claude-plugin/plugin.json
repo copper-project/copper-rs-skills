@@ -1,0 +1,21 @@
+{
+  "name": "copper-rs-skills",
+  "version": "0.1.0",
+  "description": "Agent skills for working in the copper-rs robotics runtime/SDK (the cu29 crates)",
+  "author": {
+    "name": "copper-project"
+  },
+  "homepage": "https://github.com/copper-project/copper-rs",
+  "repository": "https://github.com/copper-project/copper-rs-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "copper",
+    "copper-rs",
+    "cu29",
+    "robotics",
+    "middleware",
+    "real-time",
+    "rust"
+  ],
+  "skills": "./"
+}

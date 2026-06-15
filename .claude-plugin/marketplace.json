@@ -1,0 +1,15 @@
+{
+  "name": "copper-rs-skills",
+  "owner": {
+    "name": "copper-project"
+  },
+  "metadata": {
+    "description": "Agent skills for working in the copper-rs robotics runtime/SDK"
+  },
+  "plugins": [
+    {
+      "name": "copper-rs-skills",
+      "source": "./"
+    }
+  ]
+}
