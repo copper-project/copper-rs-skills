@@ -1,5 +1,5 @@
 ---
-name: copper-rs-macro-debug
+name: copper-macro-debug
 description: >-
   Debug the `#[copper_runtime]` proc macro in copper-rs (`cu29_derive`): read
   its compile errors, decide when to run `cargo expand` / `just expand-runtime`,
@@ -8,7 +8,7 @@ description: >-
   `sim_mode` divergence, feature-gated lifecycle hooks). Use whenever the
   compiler error mentions `#[copper_runtime]`, points at the `App` struct line,
   or names a symbol that only exists in expanded code. For everyday task/RON
-  authoring see `copper-rs`; for `just` commands see `copper-rs-workflow`.
+  authoring see `copper-arch`; for `just` commands see `copper-workflow`.
 ---
 
 # copper-rs macro debugging
@@ -22,7 +22,7 @@ and **executes at compile time** — it reads the RON file from disk, resolves
 every task/source/sink/bridge type, computes the execution plan, and emits Rust.
 
 This skill is about the failure modes specific to that macro. For "what does
-the macro do conceptually" see `copper-rs` (the architecture skill).
+the macro do conceptually" see `copper-arch` (the architecture skill).
 
 ## When to invoke
 
@@ -174,12 +174,12 @@ hard error. If the RON is multi-Copper, omitting `subsystem` is a hard error.
 
 ## What this skill is *not*
 
-- Not the RON schema reference — see `cu-ron-config` for every key/field and
+- Not the RON schema reference — see `copper-ron-config` for every key/field and
   the exact validation errors the parser emits.
-- Not a guide to the runtime's execution model — see `copper-rs`.
+- Not a guide to the runtime's execution model — see `copper-arch`.
 - Not a guide to implementing sources/tasks/sinks/bridges — see
-  `cu-component-design`.
-- Not the debug/replay runtime playbook — see `cu-debug-replay` for
+  `copper-component-design`.
+- Not the debug/replay runtime playbook — see `copper-debug-replay` for
   extract-copperlists, resim, and the `debug.v1` remote-debug protocol.
 - Not a guide to logging macros (`debug!`/`info!` syntax restrictions) — see
-  `copper-rs-coding-style`.
+  `copper-coding-style`.

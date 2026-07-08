@@ -1,12 +1,12 @@
 ---
-name: copper-rs-coding-style
+name: copper-coding-style
 description: >-
   Coding style and conventions for the copper-rs (`cu29`) Rust workspace. Use when
   writing, editing, or reviewing Rust code in this repo so it matches house style:
   naming, import grouping, `CuResult`/`CuError` error handling, std/no_std discipline,
   the interning `debug!/info!/warning!/error!` logging macros, doc comments/doctests,
   clippy gotchas, payload trait bounds, and test layout. For architecture and task
-  authoring see `copper-rs`; for build/test/debug commands see `copper-rs-workflow`.
+  authoring see `copper-arch`; for build/test/debug commands see `copper-workflow`.
 ---
 
 # copper-rs — coding style & conventions
@@ -14,7 +14,7 @@ description: >-
 There is **no `rustfmt.toml` and no `[workspace.lints]`** — formatting is stock `cargo fmt`
 (edition 2024) and lint policy is enforced on the command line (`clippy --deny warnings`).
 Match the surrounding file; the patterns below are what "surrounding" looks like. Run
-`just fmt` after every edit pass (see the `copper-rs-workflow` skill).
+`just fmt` after every edit pass (see the `copper-workflow` skill).
 
 ## Naming
 
@@ -68,7 +68,7 @@ the type must still exist. Guard illegal feature combos with `compile_error!` (e
 - they compile out below the active `log-level-*` feature (`critical!` always stays).
 
 Use these for any temporary instrumentation; do not reach for `println!`/`eprintln!`. (See
-`copper-rs-workflow` for why the recorded log, not ad-hoc prints, is the debugging surface.)
+`copper-workflow` for why the recorded log, not ad-hoc prints, is the debugging surface.)
 
 ## Doc comments & doctests
 

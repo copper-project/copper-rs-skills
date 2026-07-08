@@ -1,12 +1,12 @@
 ---
-name: copper-rs-workflow
+name: copper-workflow
 description: >-
   Build, test, and debugging workflow for the copper-rs (`cu29`) repo. Use when running
   CI-aligned `just` targets (pr-check/lint/test/std-ci/nostd-ci/api-check), setting up the
   environment to make those pass, rendering the DAG, expanding the runtime macro, or
   debugging a running/recorded app via the unified `.copper` log: extracting copperlists,
   resim (deterministic replay), the remote-debug API, or the Python export. For
-  architecture see `copper-rs`; for code style see `copper-rs-coding-style`.
+  architecture see `copper-arch`; for code style see `copper-coding-style`.
 ---
 
 # copper-rs — build, test & debugging workflow
@@ -52,7 +52,7 @@ GUI/GStreamer/pcap crates and python-task tests:
 **Do not add ad-hoc `println!`/custom text dumps to inspect message values.** Copper already
 records task messages as CopperLists when task logging is on — extract them. For temporary
 instrumentation use the structured macros `debug!`/`info!`/`warning!`/`error!` (interned text
-logs; see the `copper-rs-coding-style` skill for their `{}`-only syntax), never bespoke
+logs; see the `copper-coding-style` skill for their `{}`-only syntax), never bespoke
 text formats.
 
 Debugging escalation ladder (cheapest first):

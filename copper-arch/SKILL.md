@@ -1,12 +1,12 @@
 ---
-name: copper-rs
+name: copper-arch
 description: >-
   Architecture and task-authoring guide for the copper-rs robotics runtime/SDK (the
   `cu29` crates). Use when orienting in the repo or writing/reviewing app code:
   tasks/sources/sinks/bridges, the `#[copper_runtime]` macro, `copperconfig.ron`
   graphs, resources, missions, and the runtime's design constraints. For code style
-  see the `copper-rs-coding-style` skill; for build/test/logging/replay commands see
-  the `copper-rs-workflow` skill.
+  see the `copper-coding-style` skill; for build/test/logging/replay commands see
+  the `copper-workflow` skill.
 ---
 
 # copper-rs — architecture & task authoring
@@ -21,8 +21,8 @@ Core value props that must be preserved when changing runtime behavior:
 **sub-microsecond, zero-alloc real-time path**, and a **mixed `std`/`no_std` workspace**
 (desktop → SBC → bare-metal MPU, plus browser/wasm).
 
-Companion skills: **`copper-rs-coding-style`** (naming, errors, no_std, logging macros,
-tests) and **`copper-rs-workflow`** (the `just` commands, logging/debugging/replay,
+Companion skills: **`copper-coding-style`** (naming, errors, no_std, logging macros,
+tests) and **`copper-workflow`** (the `just` commands, logging/debugging/replay,
 environment setup). The repo root `AGENTS.md` is the authoritative, longer companion —
 read it for the full file map and debugging playbook. **Authority order when sources
 disagree: code > rustdoc/API > wiki/book narrative.** Default branch is `master`.
@@ -57,7 +57,7 @@ disagree: code > rustdoc/API > wiki/book narrative.** Default branch is `master`
 - `vendor/` — patched deps (e.g. `soft_ratatui`, via `[patch.crates-io]`).
 
 `default-members` is only the core, platform-neutral crates. Full-workspace builds pull
-in hardware/GUI-heavy crates and need extra system deps (see the `copper-rs-workflow` skill).
+in hardware/GUI-heavy crates and need extra system deps (see the `copper-workflow` skill).
 
 ## Anatomy of a Copper app
 
@@ -134,7 +134,7 @@ impl CuSrcTask for MySource {
   `input_msg!`/`output_msg!` macros, not raw `CuMsg` types. Resources (HAL handles) are
   injected via `Resources<'r>` and bound in config — see `examples/cu_resources_test/`.
 - Payload trait bounds (`CuMsgPayload`) and the canonical derive live in the
-  `copper-rs-coding-style` skill.
+  `copper-coding-style` skill.
 
 ## Design biases — uphold these in any change
 
@@ -165,7 +165,7 @@ impl CuSrcTask for MySource {
 - Task API / message flow / lifecycle: `cu29_runtime/src/{cutask,cubridge,app}.rs`.
 - Resources / HAL: `cu29_runtime/src/resource.rs`, `examples/cu_resources_test/`.
 - Logging / export / replay: `core/cu29_export/`, `core/cu29_unifiedlog/`,
-  `examples/cu_caterpillar/src/{logreader,resim}.rs` (see `copper-rs-workflow`).
+  `examples/cu_caterpillar/src/{logreader,resim}.rs` (see `copper-workflow`).
 - Templates / DX: `support/cargo_cunew/templates/{cu_project,cu_full}/`.
 - Embedded / no_std: `support/ci/embedded_crates.py`, `components/res/cu_micoairh743/`,
   the `cu_rp2350_skeleton` example, `.github/workflows/reusable-embedded.yml`.

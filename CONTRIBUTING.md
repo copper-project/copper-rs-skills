@@ -10,9 +10,14 @@ stay accurate, so the bar for edits is: **does this match the current code?**
   Verify a claim against the source before writing it down; cite concrete paths
   (`core/cu29_runtime/src/cutask.rs`) and `just` targets rather than vague guidance.
 - **One concern per skill.** Keep the split clean:
-  - `copper-rs` — architecture & task authoring
-  - `copper-rs-coding-style` — code style & conventions
-  - `copper-rs-workflow` — build, test & debugging commands
+  - `copper-arch` — architecture & task authoring
+  - `copper-coding-style` — code style & conventions
+  - `copper-workflow` — build, test & debugging commands
+  - `copper-api-flavor` — taste rules for new user-facing traits
+  - `copper-macro-debug` — `#[copper_runtime]` compile-time issues
+  - `copper-ron-config` — RON schema reference
+  - `copper-component-design` — source/task/sink/bridge implementation recipes
+  - `copper-debug-replay` — runtime debug/replay/remote-debug deep dive
 
   If something fits two, put it in the most specific one and cross-reference by skill name.
 - **Each skill is a directory with a `SKILL.md`.** The YAML frontmatter needs a `name`
@@ -33,6 +38,6 @@ stay accurate, so the bar for edits is: **does this match the current code?**
 
 ## Adding a new skill
 
-Create `copper-rs-<topic>/SKILL.md`, set matching `name`/`description`, link it from the
+Create `copper-<topic>/SKILL.md`, set matching `name`/`description`, link it from the
 README's overview table, and from sibling skills where relevant. No change to the plugin
 manifests is needed — skills are discovered from the repo root (`"skills": "./"`).

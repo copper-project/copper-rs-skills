@@ -1,5 +1,5 @@
 ---
-name: cu-component-design
+name: copper-component-design
 description: >-
   Recipe book for implementing a new copper-rs component — a `CuSrcTask`,
   `CuTask`, `CuSinkTask`, or `CuBridge`. Use when scaffolding a new crate under
@@ -7,15 +7,15 @@ description: >-
   lifecycle hooks to override, how to read the node's RON `config:` block, how
   to declare `Resources<'r>`, when `Freezable` needs a real impl vs the default.
   All patterns are anchored to real crates in `components/`. Complements
-  `copper-rs` (traits + macro overview), `copper-rs-api-flavor` (the five taste
-  rules for user-facing traits), and `copper-rs-coding-style` (derives, error
-  handling, no_std). For the RON side of the wiring see `cu-ron-config`; for
-  build/verify commands see `copper-rs-workflow`.
+  `copper-arch` (traits + macro overview), `copper-api-flavor` (the five taste
+  rules for user-facing traits), and `copper-coding-style` (derives, error
+  handling, no_std). For the RON side of the wiring see `copper-ron-config`; for
+  build/verify commands see `copper-workflow`.
 ---
 
 # copper-rs — component design recipes
 
-`copper-rs` gives you four component roles. This skill is the practical answer to
+`copper-arch` gives you four component roles. This skill is the practical answer to
 "I'm about to implement one — what does a real one look like?" — with the file:line
 citations so you can open the canonical crate side-by-side.
 
@@ -29,7 +29,7 @@ Trait anchors (**do not re-derive here**, cite them):
 - `Resources<'r>` model — `core/cu29_runtime/src/resource.rs` (canonical demo:
   `examples/cu_resources_test/src/resources.rs:79–100`)
 
-Before writing anything new, read `copper-rs-api-flavor` — the five rules there (in-place
+Before writing anything new, read `copper-api-flavor` — the five rules there (in-place
 `&mut` outputs, `get_value` for enums, no cached inputs, payload/`Tov` placement,
 `CuTask` lifecycle) will get enforced on review regardless of correctness.
 
@@ -43,11 +43,11 @@ Before writing anything new, read `copper-rs-api-flavor` — the five rules ther
 - `impl Freezable for MyComp {}` is required even for stateless components — the trait
   bound is enforced. Stateless just gets the default no-op impl (`cutask.rs:412`).
   `impl_default_freeze!` is the ergonomic macro when you have many stateless structs.
-- Payload types satisfy `CuMsgPayload` — see `copper-rs-coding-style` for the derive
+- Payload types satisfy `CuMsgPayload` — see `copper-coding-style` for the derive
   set. Prefer reusing payloads from `components/payloads/cu_sensor_payloads/` when a
   standard type exists (IMU, image, point cloud) instead of inventing a new one.
 - Config extraction: `.get::<T>` for scalars, `.get_value::<T>` for anything
-  structured or enum-shaped. See `cu-ron-config` for the rule.
+  structured or enum-shaped. See `copper-ron-config` for the rule.
 - Do **not** stash inputs in `self` across cycles (api-flavor rule 3). The copperlist
   already holds them.
 
@@ -106,7 +106,7 @@ for tuples. Always write via `&mut Self::Output<'o>`; **never** return payload b
 
 **Resources:** declare via the `resources!` macro (`cu_mpu9250/src/lib.rs:89–100`), then
 extract handles in `new` (`res.spi.0`). Bind them from RON with
-`resources: { spi: "board.spi0", ... }` — see `cu-ron-config`.
+`resources: { spi: "board.spi0", ... }` — see `copper-ron-config`.
 
 **Foot-guns**
 
@@ -243,7 +243,7 @@ rx_channels! { feedback => FeedbackMsg = "sensor/feedback", status => StatusMsg 
 ```
 
 Each macro generates a typed channel enum plus a descriptor list. The RON side
-declares matching channels — see `cu-ron-config`'s bridge section.
+declares matching channels — see `copper-ron-config`'s bridge section.
 
 Skeleton (from `components/bridges/cu_msp_bridge/src/lib.rs:351–428`):
 

@@ -1,14 +1,14 @@
 ---
-name: cu-ron-config
+name: copper-ron-config
 description: >-
   Deep schema reference for `copperconfig.ron`. Use when reading, writing, or
   debugging a copper-rs config file: every top-level key, every per-task/per-cnx/per-bridge
   field, `ComponentConfig` accessor rules (`get::<T>` vs `get_value::<T>`), and the exact
   validation errors the parser emits. All claims cite
   `core/cu29_runtime/src/config.rs`. For the runtime architecture and task-graph mental
-  model see `copper-rs`; for `fmtron` formatting and the `just fmt` cycle see
-  `copper-rs-workflow`; for the "how should a new config field feel" taste rules
-  (enums via `Deserialize`, no stringly parsing) see `copper-rs-api-flavor`.
+  model see `copper-arch`; for `fmtron` formatting and the `just fmt` cycle see
+  `copper-workflow`; for the "how should a new config field feel" taste rules
+  (enums via `Deserialize`, no stringly parsing) see `copper-api-flavor`.
 ---
 
 # copper-rs — RON config schema reference
@@ -16,11 +16,11 @@ description: >-
 `copperconfig.ron` is a compile-time input to `#[copper_runtime(config = "...")]`. The
 parser and graph model live in `core/cu29_runtime/src/config.rs` (~6008 lines). This
 skill is the field-by-field reference into that file. It does **not** cover how the
-macro consumes the config (see `copper-rs-macro-debug`), how the runtime executes it
-(see `copper-rs`), or how to format it (see `copper-rs-workflow`).
+macro consumes the config (see `copper-macro-debug`), how the runtime executes it
+(see `copper-arch`), or how to format it (see `copper-workflow`).
 
 Authority: `config.rs` is the source of truth. When the wiki/book disagrees, the code
-wins (see `copper-rs` skill's authority order).
+wins (see `copper-arch` skill's authority order).
 
 ## Top-level grammar (`CuConfigRepresentation`, `config.rs:2195`)
 
@@ -131,7 +131,7 @@ Reach for these three in order of increasing complexity:
   ComponentConfig as one flat struct.
 
 **Never write a `match s.as_str() { "reuse_last" => ... }` parser** — that violates the
-API-flavor rule (see `copper-rs-api-flavor` skill, rule 2). Enum fields must be real
+API-flavor rule (see `copper-api-flavor` skill, rule 2). Enum fields must be real
 Rust enums with `#[derive(Deserialize)]` and read via `get_value`.
 
 ## Validation errors (grep-able strings)
@@ -173,7 +173,7 @@ Every message below is emitted verbatim; grep in `config.rs` to find the site.
 7. **Missions merge, they don't override.** A cnx repeated across includes ends up
    in the **union** of both mission lists (`:1143`).
 8. **Never hand-format RON.** `just fmt` runs `fmtron` and is enforced in
-   `fmt-check` (see `copper-rs-workflow`). Diffs from manual edits will fail CI.
+   `fmt-check` (see `copper-workflow`). Diffs from manual edits will fail CI.
 9. **`monitor:` and `monitors:` are aliases** — either one parses, but a mixed file
    with both is confusing to readers. Pick one per repo.
 10. **Resource-binding field names are validated at codegen, not at RON parse.** A

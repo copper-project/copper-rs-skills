@@ -1,5 +1,5 @@
 ---
-name: cu-debug-replay
+name: copper-debug-replay
 description: >-
   Runtime-debug playbook for copper-rs. Use whenever the reflex is to add
   `println!`, rebuild, and rerun — copper already recorded every message; the
@@ -8,9 +8,9 @@ description: >-
   the `#[copper_runtime(sim_mode = true)]` replay flow, the `debug.v1` RPC over
   Zenoh, the Python offline API, and the common failure modes (empty logs,
   slab discovery, divergence, `CuStampedDataSet` mismatch, keyframe interval).
-  For build/format/`just` targets see `copper-rs-workflow`; for compile-time
-  macro errors see `copper-rs-macro-debug`; for the RON side of a debug config
-  see `cu-ron-config`.
+  For build/format/`just` targets see `copper-workflow`; for compile-time
+  macro errors see `copper-macro-debug`; for the RON side of a debug config
+  see `copper-ron-config`.
 ---
 
 # copper-rs — runtime debug & replay
@@ -19,7 +19,7 @@ The mental model: **a copper app already logs every message and every keyframe**
 If you're about to `println!` a value to see what's happening, stop — extract the
 recorded copperlists, replay them deterministically, or attach the remote-debug
 protocol to a running or replay-backed app. This skill is the deep reference for
-those three tools. For the quick escalation ladder see `copper-rs-workflow`; here
+those three tools. For the quick escalation ladder see `copper-workflow`; here
 we cover the exact CLI surfaces, code entry points, and failure modes.
 
 Sources: `core/cu29_export/src/lib.rs`, `core/cu29_unifiedlog/src/{lib,memmap}.rs`,
@@ -128,10 +128,10 @@ Helpers in `replay.rs`:
 ### Keyframes and `Freezable`
 
 Keyframes snapshot every task's `Freezable::freeze` output at
-`logging.keyframe_interval` copperlists (see `cu-ron-config`). Replay resumes from a
+`logging.keyframe_interval` copperlists (see `copper-ron-config`). Replay resumes from a
 keyframe by calling `thaw` on every task. If a stateful task doesn't implement `freeze`
 properly, replay from any non-zero copperlist will diverge — this is why every
-stateful task in `cu-component-design` implements it.
+stateful task in `copper-component-design` implements it.
 
 Sim-only helpers on the runtime (`core/cu29_runtime/src/app_sim.rs:1–27`):
 
@@ -246,12 +246,12 @@ each carrying `task_id`, `tov`, `metadata`, `payload`.
 
 | Symptom | Root cause | Fix |
 |---|---|---|
-| `extract-copperlists` returns empty | `logging.enable_task_logging: false` (or node-level `logging: (enabled: false)`) | flip it on in RON — see `cu-ron-config` |
+| `extract-copperlists` returns empty | `logging.enable_task_logging: false` (or node-level `logging: (enabled: false)`) | flip it on in RON — see `copper-ron-config` |
 | logreader "log family not found" | passed `foo_0.copper` instead of base `foo.copper`, or `_N` slab missing | pass the **base** path; `ls` the dir to confirm the family |
-| replay diverges from record | non-deterministic source (real `Instant::now`, live clock), config drift, missing `freeze/thaw` on a stateful task | use `RobotClock::mock` in both runs, keep RON identical, verify `Freezable` covers all state; see `cu-component-design` |
+| replay diverges from record | non-deterministic source (real `Instant::now`, live clock), config drift, missing `freeze/thaw` on a stateful task | use `RobotClock::mock` in both runs, keep RON identical, verify `Freezable` covers all state; see `copper-component-design` |
 | logreader panics decoding payloads | `gen_cumsgs!` config path doesn't match the app's recorded config | point the macro at the exact same RON; if missions differ, pass `mission =` |
 | replay skips or re-executes wrong tasks | `SimStep` match arms miss a task or default to `ExecuteByRuntime` when they should inject | audit the callback against `default::SimStep` variants |
-| keyframe cost dominates | `keyframe_interval` too small for the rate | raise it; remember it counts copperlists, not ms (`cu-ron-config`) |
+| keyframe cost dominates | `keyframe_interval` too small for the rate | raise it; remember it counts copperlists, not ms (`copper-ron-config`) |
 | remote-debug client "MissingSession" | forgot `session.open` before any nav/state call | open first; `health.ping` is the only session-optional method |
 | "MissionStarted event found but mission mismatch" | replaying an app-recorded log under the wrong mission | pass the correct `--mission` (or `assert_unified_log_mission(...)` in the test) |
 
@@ -270,7 +270,7 @@ each carrying `task_id`, `tov`, `metadata`, `payload`.
 ## Never do (in a debug context)
 
 - **Add `println!` / `eprintln!` for temporary instrumentation.** Use the interned
-  `debug!/info!/warning!/error!` macros (see `copper-rs-coding-style`) so the output
+  `debug!/info!/warning!/error!` macros (see `copper-coding-style`) so the output
   ends up in the same unified log the extractor already reads.
 - **Add env-var fallbacks to the replay CLI.** `replay.rs:119–127` explicitly
   applies defaults only when the flag is absent.

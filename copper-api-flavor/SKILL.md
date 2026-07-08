@@ -1,11 +1,11 @@
 ---
-name: copper-rs-api-flavor
+name: copper-api-flavor
 description: >-
   How to shape new user-facing traits and adapters in the copper-rs (`cu29`) codebase so
   they match the maintainer's design taste. Use when proposing or reviewing any new
   task-like trait, adapter over `CuTask`/`CuSrcTask`/`CuSinkTask`, RON-configured
-  enum/policy field, or any API that touches the hot path. Complements `copper-rs`
-  (architecture) and `copper-rs-coding-style` (formatting/naming/logging).
+  enum/policy field, or any API that touches the hot path. Complements `copper-arch`
+  (architecture) and `copper-coding-style` (formatting/naming/logging).
 ---
 
 # copper-rs API flavor — how new task APIs must feel
