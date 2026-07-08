@@ -59,12 +59,14 @@ done
 ## Recommended workflow
 
 1. Land in the repo → `copper-arch` orients you (architecture, where to start).
-2. Writing or reviewing Rust → `copper-coding-style` keeps it on-house-style;
-   `copper-api-flavor` catches design-taste issues before review does.
-3. Editing `copperconfig.ron` → `copper-ron-config` is the schema reference.
-4. Implementing a source / task / sink / bridge → `copper-component-design`.
-5. Compile-time macro grief → `copper-macro-debug`.
-6. Building, testing, or chasing a bug in a recorded run → `copper-workflow` for the
+2. **Before you sketch a new user-facing trait, adapter, or config field**, read
+   `copper-api-flavor` — the maintainer enforces these five rules on the diff, so it's
+   much cheaper to bake them in than to unpick them at review.
+3. Writing or reviewing Rust → `copper-coding-style` keeps it on-house-style.
+4. Editing `copperconfig.ron` → `copper-ron-config` is the schema reference.
+5. Implementing a source / task / sink / bridge → `copper-component-design`.
+6. Compile-time macro grief → `copper-macro-debug`.
+7. Building, testing, or chasing a bug in a recorded run → `copper-workflow` for the
    `just` targets, `copper-debug-replay` for the deep extract/resim/remote-debug flow.
 
 Skills auto-activate from their `description`; you can also invoke one explicitly.

@@ -47,6 +47,9 @@ GUI/GStreamer/pcap crates and python-task tests:
   libgstreamer-plugins-bad1.0-dev libwayland-dev libxkbcommon-dev`
 - python: `pip3 install --break-system-packages cbor2` (for `cu-python-task` process-mode tests).
 
+If this list ever fails, `support/docker/Dockerfile.ubuntu` is the source of truth — the
+snapshot above will drift; the pointer will not.
+
 ## Logging & debugging — the unified log is the primary tool
 
 **Do not add ad-hoc `println!`/custom text dumps to inspect message values.** Copper already

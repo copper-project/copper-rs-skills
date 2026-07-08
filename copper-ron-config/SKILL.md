@@ -22,6 +22,11 @@ macro consumes the config (see `copper-macro-debug`), how the runtime executes i
 Authority: `config.rs` is the source of truth. When the wiki/book disagrees, the code
 wins (see `copper-arch` skill's authority order).
 
+**Line-number citations below are anchors, not addresses.** They will drift as
+`config.rs` evolves; the *error strings* and *symbol names* are stable. If a `:NNN`
+misses, grep the neighbouring quoted text (`"is declared as kind"`, `CuConfigRepresentation`,
+`SerializedCnx`, etc.) — that's the durable hook.
+
 ## Top-level grammar (`CuConfigRepresentation`, `config.rs:2195`)
 
 | Key | Type | Required | Default | Purpose | Ref |
@@ -52,6 +57,12 @@ A valid graph needs at least one node. `type:` strings are Rust paths resolved a
 | `background` | `BackgroundConfig` | no | `false` | `true` for default pool, or `(pool: "name")` for a named pool | `:693, 651` |
 | `resources` | `HashMap<String,String>` | no | none | local name → `"bundle_id.field"` binding | `:681` |
 | `run_in_sim` | `bool` | no | **false** for sources/sinks, ignored for regular tasks | when `false`, source/sink is stubbed under sim | `:701, 810` |
+
+`kind` is optional: **omit it and the parser infers from graph connectivity** — a node
+with no incoming edges is a `source`, no outgoing is a `sink`, otherwise `task`. Setting
+`kind:` explicitly is a *contract* the validator then checks against connectivity, which
+is where these errors come from — hence the "no declared inputs or outputs" case
+(`:1602`) fires when neither the explicit kind nor the connectivity can decide.
 
 `kind` inference errors (grep-able strings): `"is declared as kind 'source' but has
 incoming connections"` (`:1540`), `"is declared as kind 'task' but has no incoming

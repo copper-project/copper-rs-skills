@@ -26,6 +26,12 @@ Sources: `core/cu29_export/src/lib.rs`, `core/cu29_unifiedlog/src/{lib,memmap}.r
 `core/cu29_runtime/src/{replay,app_sim,simulation,remote_debug}.rs`,
 `examples/cu_caterpillar/src/{logreader,resim,determinism}.rs`.
 
+**Line-number citations below are anchors, not addresses** — they drift as these files
+evolve. The durable hooks are the *symbol names* (`ReplayArgs`, `SimOverride`,
+`run_cli`, `struct_log_iterator_unified`, `MAIN_MAGIC`) and the *quoted error/protocol
+strings* (`"log family not found"`, `debug.v1`, `MissingSession`). Grep those if a
+`:NNN` misses.
+
 ## Escalation ladder (deep dive)
 
 Cheapest → richest. Reach for the first that answers the question.

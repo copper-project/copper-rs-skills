@@ -66,6 +66,10 @@ the type must still exist. Guard illegal feature combos with `compile_error!` (e
 - **only `{}` placeholders** are supported — no `{name}`, no `{:?}`, no format specs,
   no positional `{0}`. Pass values as trailing args: `debug!("id={} ok={}", id, ok)`.
 - they compile out below the active `log-level-*` feature (`critical!` always stays).
+  **Default (no `log-level-*` feature set) is profile-driven** via
+  `core/cu29_log_derive/build.rs`: **`debug` in dev builds, `info` in release** — so a
+  `debug!(...)` line vanishes in `cargo build --release` unless you pass
+  `--features cu29/log-level-debug`.
 
 Use these for any temporary instrumentation; do not reach for `println!`/`eprintln!`. (See
 `copper-workflow` for why the recorded log, not ad-hoc prints, is the debugging surface.)

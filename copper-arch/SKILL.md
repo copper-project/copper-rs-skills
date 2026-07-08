@@ -33,10 +33,11 @@ disagree: code > rustdoc/API > wiki/book narrative.** Default branch is `master`
   - `core/cu29` — primary user-facing crate; its **prelude re-exports nearly everything**
     app authors touch (`use cu29::prelude::*;`). `lib.rs` is `#![no_std]`-aware.
   - `core/cu29_runtime` — the heart. Key modules: `config.rs` (RON schema + graph),
-    `curuntime.rs` (`CuRuntime`, execution plan), `cutask.rs` (task traits + `CuMsg`),
-    `cubridge.rs`, `app.rs` (`CuApp`/builder), `resource.rs` (HAL wiring),
-    `simulation.rs`/`app_sim.rs` (sim + resim), `replay.rs`, `remote_debug.rs`,
-    `monitoring.rs`, `reflect.rs`.
+    `curuntime.rs` (`CuRuntime`, `compute_runtime_plan` — the topological execution plan
+    the macro embeds), `cutask.rs` (task traits + `CuMsg`), `cubridge.rs`, `app.rs`
+    (`CuApp`/builder), `resource.rs` (HAL wiring), `simulation.rs`/`app_sim.rs` (sim +
+    resim), `replay.rs`, `remote_debug.rs` (`remote-debug` feature),
+    `monitoring.rs`, `reflect.rs` (`reflect` feature).
   - `core/cu29_derive` — the `#[copper_runtime]` proc macro (`src/lib.rs`); also
     `bundle_resources`, `resources`, `safety_case`, and `gen_cumsgs!`.
   - `core/cu29_export` — log reader CLI (`run_cli`), MCAP/JSON/CSV export, Python API
@@ -127,6 +128,12 @@ impl CuSrcTask for MySource {
 - `CuTask` — `type Input<'m> = input_msg!(A, B)` (a `CuMsgPack`) → `type Output<'m>`
   (compute/algorithms). Read inputs via `input.payload()` (`Option<&T>`).
 - `CuSinkTask` — `Input` only, no output (actuators / final destinations).
+- **Bridges** (`CuBridge`, `cubridge.rs`) — the runtime's only bidirectional node.
+  A bridge owns one transport (serial port, Zenoh session, CAN bus) and exposes
+  typed Rx/Tx channels declared via the `rx_channels!`/`tx_channels!` macros; the
+  RON side lists them as first-class nodes distinct from `tasks:`, and cnxs
+  address individual channels as `"bridge_id/channel_id"`. Skeleton and taste
+  rules live in `copper-component-design`.
 - Optional lifecycle hooks beyond `process`: `start`, `stop`, `preprocess`,
   `postprocess`. `new(config, resources)` builds the task; `config` is the node's RON
   `config: {...}` as a `ComponentConfig` (use `.get::<T>("key")`).
