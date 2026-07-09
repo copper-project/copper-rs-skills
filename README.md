@@ -21,40 +21,75 @@ agents (and humans) can be productive without re-deriving it every time.
 Skills are cross-referenced: each `SKILL.md` points to the others by name so the right
 one is pulled in for a given task.
 
+## Compatibility
+
+Tested with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and
+[OpenAI Codex](https://openai.com/index/openai-codex/). Each `SKILL.md` follows
+the [agentskills.io](https://agentskills.io/specification.md) spec, so any
+skills-aware agent listed by `npx skills add --help` should work.
+
 ## Install
 
-### Via the `skills` installer (recommended)
+> **Note (pre-release):** the `copper-project/copper-rs-skills` repo is currently
+> private. Every install path below requires read access on your GitHub account
+> — either an SSH key on `github.com`, or a token via `gh auth login`. Once the
+> repo is public the `owner/repo` shorthands work with no auth.
 
-```
+### Via the `skills` installer (recommended, cross-agent)
+
+Works for both Claude Code and Codex — pick the target(s) from the interactive
+menu (`--agent claude-code`, `--agent codex`, or `--agent '*'`).
+
+Public-repo form:
+
+```bash
 npx skills add copper-project/copper-rs-skills
 ```
 
-Select the skills you want, choose a scope (global or per-project), and a link method.
+Private-repo form (clone with SSH, install from the local path):
 
-### As a Claude Code plugin
+```bash
+git clone git@github.com:copper-project/copper-rs-skills.git
+npx skills add "$PWD/copper-rs-skills"
+```
 
-This repo is a Claude Code plugin marketplace (`.claude-plugin/marketplace.json`). Add it,
-then install the plugin:
+The installer prompts for skill selection, scope (`-g` for user-global,
+otherwise per-project), and link method (symlink by default, `--copy` to copy).
+Update later with `npx skills update`; remove with `npx skills remove`.
+
+### As a Claude Code plugin (Claude only)
+
+This repo is also a Claude Code plugin marketplace
+(`.claude-plugin/marketplace.json`).
 
 ```
 /plugin marketplace add copper-project/copper-rs-skills
 /plugin install copper-rs-skills@copper-rs-skills
 ```
 
+Private-repo variant: clone first, then pass the local path to
+`/plugin marketplace add`.
+
 ### Manual
 
-Copy (or symlink) the skill directories into your skills folder:
+Clone once, then symlink the skill directories into your agent's skills folder.
 
 ```bash
-# user-global
-git clone https://github.com/copper-project/copper-rs-skills
-for s in copper-arch copper-coding-style copper-workflow copper-api-flavor \
-         copper-macro-debug copper-ron-config copper-component-design copper-debug-replay; do
-  ln -s "$PWD/copper-rs-skills/$s" "$HOME/.claude/skills/$s"
-done
+git clone git@github.com:copper-project/copper-rs-skills.git
+SKILLS=(copper-arch copper-coding-style copper-workflow copper-api-flavor \
+        copper-macro-debug copper-ron-config copper-component-design copper-debug-replay)
 
-# or per-project: symlink into <repo>/.claude/skills/ instead
+# Claude Code — user-global
+mkdir -p "$HOME/.claude/skills"
+for s in "${SKILLS[@]}"; do ln -s "$PWD/copper-rs-skills/$s" "$HOME/.claude/skills/$s"; done
+
+# Codex — per-project (run inside the project you want the skills in)
+mkdir -p ./.agents/skills
+for s in "${SKILLS[@]}"; do ln -s "$PWD/copper-rs-skills/$s" "./.agents/skills/$s"; done
 ```
+
+For per-project Claude Code, symlink into `<repo>/.claude/skills/` instead.
+Restart open agent sessions after installing so the new skills are discovered.
 
 ## Recommended workflow
 
