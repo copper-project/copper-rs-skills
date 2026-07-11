@@ -17,11 +17,6 @@ skills-aware agent listed by `npx skills add --help` should work.
 
 ## Install
 
-> **Note (pre-release):** the `copper-project/copper-rs-skills` repo is currently
-> private. Every install path below requires read access on your GitHub account
-> — either an SSH key on `github.com`, or a token via `gh auth login`. Once the
-> repo is public the `owner/repo` shorthands work with no auth.
-
 ### Via the `skills` installer (recommended, cross-agent)
 
 Works for both Claude Code and Codex — pick the target(s) from the interactive
