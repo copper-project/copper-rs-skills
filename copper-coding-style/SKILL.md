@@ -5,8 +5,9 @@ description: >-
   writing, editing, or reviewing Rust code in this repo so it matches house style:
   naming, import grouping, `CuResult`/`CuError` error handling, std/no_std discipline,
   the interning `debug!/info!/warning!/error!` logging macros, doc comments/doctests,
-  clippy gotchas, payload trait bounds, and test layout. For architecture and task
-  authoring see `copper-arch`; for build/test/debug commands see `copper-workflow`.
+  clippy gotchas, payload trait bounds, and test layout. For runtime architecture see
+  `copper-arch`; for core implementation constraints see `copper-core-dev`; for
+  build/test/debug commands see `copper-workflow`.
 ---
 
 # copper-rs — coding style & conventions

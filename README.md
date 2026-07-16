@@ -62,16 +62,15 @@ your agent's skills directory.
 
 ## Skills
 
-Eight skills, grouped by what you're doing. Each `SKILL.md` cross-references the
+Nine skills, grouped by what you're doing. Each `SKILL.md` cross-references the
 others by name so the right one is pulled in for a given task.
 
 ### Orientation
 
-[`copper-arch`](./copper-arch/SKILL.md) — the mental model. Workspace map,
-anatomy of a Copper app, the `CuSrcTask`/`CuTask`/`CuSinkTask` traits,
-`copperconfig.ron` graphs, resources, missions, and the runtime's design biases
-(static-over-dynamic, sacred real-time path, std/no_std). **Start here** when
-landing in the repo.
+[`copper-arch`](./copper-arch/SKILL.md) — the mental model. Generated runtimes,
+`copperconfig.ron` task graphs, component roles, `CuMsg` flow, resources,
+missions, logging, and deterministic replay. **Start here** when learning how a
+Copper application fits together.
 
 [`copper-workflow`](./copper-workflow/SKILL.md) — how the repo is built and
 tested. The CI-aligned `just` targets (`pr-check`/`lint`/`test`/`std-ci`/
@@ -79,6 +78,11 @@ tested. The CI-aligned `just` targets (`pr-check`/`lint`/`test`/`std-ci`/
 ladder. Use whenever `just` is involved or a run has produced a `.copper` log.
 
 ### Writing code
+
+[`copper-core-dev`](./copper-core-dev/SKILL.md) — core runtime/SDK development.
+The internal crate map, runtime design constraints, hot-path and std/no_std rules,
+deterministic-replay impact, and concrete starting points for changes under `core/`.
+Use this when changing Copper itself rather than building an application on it.
 
 [`copper-coding-style`](./copper-coding-style/SKILL.md) — house style. Naming
 (`Cu` prefix), import grouping, `CuResult`/`CuError` error handling, std/no_std
@@ -117,15 +121,16 @@ rerun.
 
 ## Recommended workflow
 
-1. Land in the repo → `copper-arch` orients you (architecture, where to start).
-2. **Before you sketch a new user-facing trait, adapter, or config field**, read
+1. Land in the repo → `copper-arch` explains the execution model.
+2. Changing runtime or SDK internals → `copper-core-dev` maps the code and constraints.
+3. **Before you sketch a new user-facing trait, adapter, or config field**, read
    `copper-api-flavor` — the maintainer enforces these five rules on the diff, so it's
    much cheaper to bake them in than to unpick them at review.
-3. Writing or reviewing Rust → `copper-coding-style` keeps it on-house-style.
-4. Editing `copperconfig.ron` → `copper-ron-config` is the schema reference.
-5. Implementing a source / task / sink / bridge → `copper-component-design`.
-6. Compile-time macro grief → `copper-macro-debug`.
-7. Building, testing, or chasing a bug in a recorded run → `copper-workflow` for the
+4. Writing or reviewing Rust → `copper-coding-style` keeps it on-house-style.
+5. Editing `copperconfig.ron` → `copper-ron-config` is the schema reference.
+6. Implementing a source / task / sink / bridge → `copper-component-design`.
+7. Compile-time macro grief → `copper-macro-debug`.
+8. Building, testing, or chasing a bug in a recorded run → `copper-workflow` for the
    `just` targets, `copper-debug-replay` for the deep extract/resim/remote-debug flow.
 
 Skills auto-activate from their `description`; you can also invoke one explicitly.
