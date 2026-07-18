@@ -53,15 +53,15 @@ Before writing anything new, read `copper-api-flavor` — the five rules there (
 
 **Stamping `tov`.** `Tov` is a field on the `CuMsg` envelope (`pub tov: Tov` in
 `cutask.rs`; the enum — `None`/`Time`/`Range` — is in `core/cu29_clock/src/lib.rs`),
-never a payload field (api-flavor rule 4). The default for a `CuTask` is to propagate the
-input's stamp: `output.tov = imu_msg.tov;` (`cu_ahrs/src/lib.rs`). Stamping from the
-clock is essentially a source-only move — for the task that genuinely knows the time of
-validity of what it just measured. Even there, `ctx.now()` is acquisition time, not
-measurement time, so take it as close to the actual read as possible:
-`cu_ads7883/src/lib.rs` brackets the SPI read with two `ctx.now()` calls and
-midpoints them; `cu_mpu9250/src/lib.rs` stamps `ctx.now()` right at the read as
-"best effort". Re-stamping `ctx.now()` in a downstream task silently replaces the
-measurement's time of validity with processing time.
+never a payload field (api-flavor rule), and it means the **physical time of
+validity** of the measurement — when the phenomenon was true in the world, not when
+the code ran. A `CuTask` propagates the input's stamp: `output.tov = imu_msg.tov;`
+(`cu_ahrs/src/lib.rs`); re-stamping `ctx.now()` downstream silently replaces the
+measurement's time of validity with processing time. Only a source stamps, and a bare
+`ctx.now()` is wrong even there — by the time `process` runs, the sample is already
+older than the sensor's internal sampling plus the bus transfer. Stamp from the
+sensor's own clock: `cu_hesai/src/lib.rs` derives per-point times from the lidar
+packet's own timestamps and stamps `Tov::Range` over the sweep.
 
 ## `CuSrcTask` — sensors, data origins
 
@@ -91,11 +91,12 @@ where SPI: SpiBus<u8>, D: DelayNs,
 
     fn start(&mut self, _ctx: &CuContext) -> CuResult<()> { self.driver.whoami() }
 
-    fn process<'o>(&mut self, ctx: &CuContext,
+    fn process<'o>(&mut self, _ctx: &CuContext,
                    new_msg: &mut Self::Output<'o>) -> CuResult<()> {
         let raw = self.driver.read()?;
+        // tov = the sensor's own sample time, not the host clock — see Stamping `tov`
+        new_msg.tov = Tov::Time(raw.sample_time);
         new_msg.set_payload(ImuPayload::from(raw));
-        new_msg.tov = Tov::Time(ctx.now());
         Ok(())
     }
 }
@@ -125,6 +126,8 @@ extract handles in `new` (`res.spi.0`). Bind them from RON with
 - Blocking reads in `process` will drag the whole RT loop. Use `preprocess` to poll
   readiness and only `process` when data is ready.
 - Forgetting `new_msg.tov = ...` leaves downstream tasks with a stale/`None` timestamp.
+- Stamping `tov = ctx.now()` records when the driver ran, not the physical time of
+  validity — stamp from the sensor's clock (see **Stamping `tov`**).
 - Tucking a timestamp into the payload struct instead of the envelope violates
   api-flavor rule 4 — `Tov` lives on `CuMsg`, never in the payload.
 
