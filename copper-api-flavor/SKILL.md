@@ -72,20 +72,28 @@ fn write_best(&self, out: &mut Self::Output);   // GOOD — in-place, zero copy
 and have the adapter's `CuTask::process` pass `output.payload_mut()` (initialised via
 `set_payload(Default::default())` if needed) through to the user code.
 
-### 2. Config is typed data — deserialize enums instead of parsing strings
+### 2. Strong typing over stringly typing — an enum is an index, a string is a parser
 
-RON config is part of the public API. Letting serde deserialize a Rust enum keeps the type
-and its accepted serialized spellings in one declaration, with one error path for unknown
-values. A hand-written string parser duplicates that schema and tends to grow aliases that
-make the API fuzzy.
+This is a general API principle, not just a config rule: any closed set of choices — a
+policy, a mode, a variant selector — is a Rust enum, never a `String`. The mechanics
+decide it. An enum compiles down to a discriminant — an index — that is cheap to store,
+copy, and `match` on, allocation-free on the hot path, and exhaustiveness-checked, so a
+missed variant is a compile error. A stringly-typed value allocates, dispatches by
+runtime string comparison, can't be exhaustiveness-checked, fails at runtime instead of
+compile time, and invites fuzzy aliases.
 
-`ComponentConfig` (`core/cu29_runtime/src/config.rs:115`) has two accessors:
+RON config is where this bites most often, because config is part of the public API.
+Letting serde deserialize a Rust enum keeps the type and its accepted serialized
+spellings in one declaration, with one error path for unknown values. A hand-written
+string parser duplicates that schema and tends to grow aliases that make the API fuzzy.
+
+`ComponentConfig` (`core/cu29_runtime/src/config.rs`) has two accessors:
 
 - `get::<T>(key)` — scalars (`bool`, integers, floats, `String`) via `TryFrom<&Value>`.
 - `get_value::<T>(key)` — anything `T: DeserializeOwned`, deserialised out of the RON
   value. This is how structured config works in this codebase
-  (`cu_peer_triangulation/src/lib.rs:220`, `cu_peer_range_accumulator/src/lib.rs:130`,
-  `cu_instance_overrides_demo/src/main.rs:30`).
+  (`cu_peer_triangulation/src/lib.rs`, `cu_peer_range_accumulator/src/lib.rs`,
+  `cu_instance_overrides_demo/src/main.rs`).
 
 **API consequence.** A policy/mode field must be a real Rust enum with `Deserialize`
 derived, read via `get_value`:
@@ -157,10 +165,10 @@ Simple non-generic task structs get away with a plain `#[derive(..., Reflect)]` 
 `cu_pid/src/lib.rs:19` is the canonical example. Use `#[reflect(ignore)]` on individual
 fields that don't derive `Reflect`.
 
-**`Tov` lives on the `CuMsg` envelope, not in the payload.** Propagate it via
-`output.tov = input.tov;` or seed from the clock: `new_msg.tov = ctx.now().into();`
-(`cu_ads7883/src/lib.rs:164`, `cu_ahrs/src/lib.rs:349–403`). Don't design payload
-wrappers that smuggle timestamps back into the data — that's what the envelope is for.
+**`Tov` lives on the `CuMsg` envelope, not in the payload** (`pub tov: Tov` in
+`cutask.rs`). Don't design payload wrappers that smuggle timestamps back into the
+data — that's what the envelope is for. For when to propagate vs stamp `tov` inside a
+component, see `copper-component-design`.
 
 **Bounds on associated payload types.** Use `CuMsgPayload` as-is. No ad-hoc weakening
 ("just `Default + Clone` is enough for my case"), no ad-hoc strengthening (`Send + Sync`,
@@ -171,25 +179,44 @@ users can plug in and drifts the API from every other task in the tree.
 
 ### 5. Preserve the lifecycle so the runtime can drive every task uniformly
 
-The generated runtime orchestrates construction, startup, each processing phase,
-shutdown, and keyframes through the task lifecycle. An adapter that renames or omits a
-phase cannot substitute cleanly for `CuTask`; omitting `Freezable` also leaves its state
-outside deterministic replay.
+The lifecycle is not a naming convention — each phase is a hook the generated runtime
+calls at a distinct moment for a distinct reason (`cutask.rs`, identical across all
+three task traits):
+
+- `new(config, resources)` — construction from RON config and declared resources,
+  before the loop runs; the one phase with no `CuContext` (no clock, no copperlist).
+- `start` / `stop` — the paired bracket around the running period: acquire/release
+  what the task holds while live. `stop` guarantees `process` won't be called again
+  until the next `start`.
+- `preprocess` / `postprocess` — best-effort per-cycle hooks that the generated loop
+  packs before the copperlist is created and after it is closed out
+  (`cu29_derive/src/lib.rs`). They exist so prep work and non-time-critical
+  bookkeeping (stats etc.) stay out of the critical path.
+- `process` — the hot path, the only phase stamped into the message's
+  `metadata.process_time` window; keep it as short as possible.
+- `freeze`/`thaw` (`Freezable`, `cutask.rs`) — task-state snapshot/restore the
+  runtime invokes at keyframe intervals (`curuntime.rs`) so deterministic replay
+  can restore a stateful task mid-log.
+
+Because the runtime drives every task through exactly these hooks, an adapter that
+renames or omits a phase cannot substitute cleanly for `CuTask`; skipping `Freezable`
+silently leaves state outside keyframes, so resim diverges (see `copper-arch`).
 
 **API consequence.** Mirror `new`, `start`, `preprocess`, `process`, `postprocess`,
 `stop`, plus `Freezable` (`freeze`/`thaw`). Every user-facing task trait — including
-adapters — must expose
-the same lifecycle with the same signatures (`&mut self, ctx: &CuContext`, returning
-`CuResult<()>`). Don't invent new lifecycle names; don't drop `Freezable`. `freeze`/
-`thaw` default to no-op which is fine for stateless work — see `cutask.rs:412–425`.
+adapters — must expose the same lifecycle with the same signatures (`&mut self,
+ctx: &CuContext`, returning `CuResult<()>`). Don't invent new lifecycle names; don't
+drop `Freezable`. Mirroring is cheap: everything except `new`/`process` (and `freeze`/
+`thaw`) defaults to a no-op, which is fine for stateless work.
 
 ## The taste check (before you send the PR)
 
 Ask, honestly:
 
 1. Does any method **return** payload by value? → rewrite to `&mut out`.
-2. Does any config field get parsed from a string by hand? → switch to
-   `Deserialize` + `get_value`.
+2. Is any closed set of choices a string instead of an enum — in config or anywhere
+   else in the API? → make it an enum; config fields read it via `Deserialize` +
+   `get_value`.
 3. Does the trait force the user to **cache** an input the copperlist already holds?
    → pass it in each time, or restructure the adapter loop.
 4. Do payload derives cover the `CuMsgPayload` bound (no ad-hoc weaker set)? Does the
