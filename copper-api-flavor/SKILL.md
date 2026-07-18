@@ -11,21 +11,24 @@ description: >-
 
 # copper-rs API flavor — how new task APIs must feel
 
-The copper-rs runtime has a **very specific taste** for what a task-facing API looks like.
-New traits or adapters that don't match it will get rejected on aesthetic grounds even
-when the logic is correct. This skill distills that taste into hard rules, each with
-the exact codebase reference that established it.
+The copper-rs runtime's ownership, real-time, and replay models constrain what a
+task-facing API should look like. These shapes are not conventions in isolation: each
+follows from who owns memory, config, time metadata, and lifecycle state. Start from that
+rationale, then apply the resulting rule. This skill gives both, with the exact codebase
+references that established them.
 
 Authority: `core/cu29_runtime/src/cutask.rs` for the trait shapes; existing
 `components/tasks/*` for canonical usage; `core/cu29_runtime/src/config.rs` for config.
 
 ## The five non-negotiables
 
-### 1. Outputs are `&mut` handles, never return values
+### 1. The runtime owns output memory — write through `&mut`
 
-The runtime already owns the output slot in the copperlist. Task code **writes into it**;
-it does not construct-then-return a payload. This avoids a copy on every cycle and keeps
-the RT path zero-alloc.
+The runtime allocates and owns each output slot as part of the `CopperList`, and it
+controls that memory's lifecycle through processing, logging, and reuse. A task receives
+temporary mutable access so it can fill the slot in place; it does not take ownership of
+the slot or return a separately owned result. This avoids an extra payload copy or clone
+on every cycle and keeps the RT path zero-alloc.
 
 Look at every existing task (`cutask.rs:498, 572–577, 650`):
 
@@ -46,7 +49,7 @@ Inputs come in as `&CuMsg<T>` (or a tuple of refs). Outputs go out as `&mut CuMs
 written via `output.set_payload(...)` / `output.clear_payload()` / mutating fields in
 place. Return value is always `CuResult<()>`.
 
-**Rule for new traits.** This applies to **every** method that produces payload state,
+**API consequence.** This applies to **every** method that produces payload state,
 including read-only-looking accessors. A `fn best(&self) -> Self::Output` still fails
 the rule — even though the receiver is `&self`, the return value is owned, so the
 adapter has to clone into the output slot. Rewrite it to write into a caller-owned
@@ -69,7 +72,12 @@ fn write_best(&self, out: &mut Self::Output);   // GOOD — in-place, zero copy
 and have the adapter's `CuTask::process` pass `output.payload_mut()` (initialised via
 `set_payload(Default::default())` if needed) through to the user code.
 
-### 2. Enum-shaped config uses `get_value` + `serde::Deserialize`, NEVER stringly parsed
+### 2. Config is typed data — deserialize enums instead of parsing strings
+
+RON config is part of the public API. Letting serde deserialize a Rust enum keeps the type
+and its accepted serialized spellings in one declaration, with one error path for unknown
+values. A hand-written string parser duplicates that schema and tends to grow aliases that
+make the API fuzzy.
 
 `ComponentConfig` (`core/cu29_runtime/src/config.rs:115`) has two accessors:
 
@@ -79,8 +87,8 @@ and have the adapter's `CuTask::process` pass `output.payload_mut()` (initialise
   (`cu_peer_triangulation/src/lib.rs:220`, `cu_peer_range_accumulator/src/lib.rs:130`,
   `cu_instance_overrides_demo/src/main.rs:30`).
 
-**Rule.** A policy/mode field must be a real Rust enum with `Deserialize` derived, read
-via `get_value`:
+**API consequence.** A policy/mode field must be a real Rust enum with `Deserialize`
+derived, read via `get_value`:
 
 ```rust
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
@@ -99,24 +107,33 @@ The maintainer will flag both the string-based dispatch ("stringly type thing") 
 be fuzzy?"). Pick one canonical serialised spelling — snake_case — via serde attributes
 and let the deserializer be the sole source of truth. No dual naming, no free-form parse.
 
-### 3. Inputs stay in the copperlist — don't make tasks cache them
+### 3. The `CopperList` owns per-cycle inputs — borrow instead of caching
 
-The copperlist already holds the input message for the whole cycle. Any per-cycle work
-that needs the input should **receive it as a parameter**, not require the task to stash
-it in `self` between calls.
+The `CopperList` already holds the input message for the whole cycle. Any per-cycle work
+that needs the input should borrow that single source of truth. Caching it in the task
+duplicates runtime-owned data, consumes memory, and creates a stale copy that can outlive
+the cycle it came from.
+
+**API consequence.** Receive the input as a parameter instead of requiring the task to
+stash it in `self` between calls.
 
 If you're designing a multi-step user trait (e.g. `base(input)` then a loop of
 `refine()`), give `refine` the input too, or refactor so the adapter drives the loop
-with the input in scope. Forcing the user to write
+with the input in scope. Do not push that duplicate ownership onto the user:
 
 ```rust
 struct MyThing { cached_input: Option<Input>, ... }
 ```
 
-is a design smell in this codebase — the runtime already stores it, doing it a second
-time doubles memory and invites staleness bugs.
+### 4. Payload contracts keep storage, tooling, and replay uniform
 
-### 4. Payload traits, Tov, and bounds live where the codebase already puts them
+`CuMsgPayload` defines the capabilities the runtime can rely on when it initializes,
+records, restores, and reflects messages. The `CuMsg` envelope similarly gives the
+runtime one payload-independent place for time-of-validity and metadata. Recreating those
+contracts in each new API would fragment the runtime's message model.
+
+**API consequence.** Reuse `CuMsgPayload` as-is, keep `Tov` on the `CuMsg` envelope, and
+add only the bounds that a specific method requires.
 
 **Payload derives.** The mandatory set is exactly what `CuMsgPayload` requires
 (`cutask.rs:28–46`):
@@ -152,10 +169,16 @@ the specific method that requires it. `CuMsgPayload` itself carries no `Send/Syn
 bound; the task traits don't either. Piling them on "just in case" narrows what payloads
 users can plug in and drifts the API from every other task in the tree.
 
-### 5. Mirror the `CuTask` lifecycle exactly
+### 5. Preserve the lifecycle so the runtime can drive every task uniformly
 
-`new`, `start`, `preprocess`, `process`, `postprocess`, `stop`, plus `Freezable`
-(`freeze`/`thaw`). Every user-facing task trait — including adapters — must expose
+The generated runtime orchestrates construction, startup, each processing phase,
+shutdown, and keyframes through the task lifecycle. An adapter that renames or omits a
+phase cannot substitute cleanly for `CuTask`; omitting `Freezable` also leaves its state
+outside deterministic replay.
+
+**API consequence.** Mirror `new`, `start`, `preprocess`, `process`, `postprocess`,
+`stop`, plus `Freezable` (`freeze`/`thaw`). Every user-facing task trait — including
+adapters — must expose
 the same lifecycle with the same signatures (`&mut self, ctx: &CuContext`, returning
 `CuResult<()>`). Don't invent new lifecycle names; don't drop `Freezable`. `freeze`/
 `thaw` default to no-op which is fine for stateless work — see `cutask.rs:412–425`.
