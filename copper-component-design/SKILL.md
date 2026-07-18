@@ -51,6 +51,18 @@ Before writing anything new, read `copper-api-flavor` — the five rules there (
 - Do **not** stash inputs in `self` across cycles (api-flavor rule 3). The copperlist
   already holds them.
 
+**Stamping `tov`.** `Tov` is a field on the `CuMsg` envelope (`pub tov: Tov` in
+`cutask.rs`; the enum — `None`/`Time`/`Range` — is in `core/cu29_clock/src/lib.rs`),
+never a payload field (api-flavor rule 4). The default for a `CuTask` is to propagate the
+input's stamp: `output.tov = imu_msg.tov;` (`cu_ahrs/src/lib.rs`). Stamping from the
+clock is essentially a source-only move — for the task that genuinely knows the time of
+validity of what it just measured. Even there, `ctx.now()` is acquisition time, not
+measurement time, so take it as close to the actual read as possible:
+`cu_ads7883/src/lib.rs` brackets the SPI read with two `ctx.now()` calls and
+midpoints them; `cu_mpu9250/src/lib.rs` stamps `ctx.now()` right at the read as
+"best effort". Re-stamping `ctx.now()` in a downstream task silently replaces the
+measurement's time of validity with processing time.
+
 ## `CuSrcTask` — sensors, data origins
 
 Skeleton (adapted from `components/sources/cu_mpu9250/src/lib.rs:103–203`):
