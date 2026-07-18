@@ -10,7 +10,8 @@ stay accurate, so the bar for edits is: **does this match the current code?**
   Verify a claim against the source before writing it down; cite concrete paths
   (`core/cu29_runtime/src/cutask.rs`) and `just` targets rather than vague guidance.
 - **One concern per skill.** Keep the split clean:
-  - `copper-arch` — architecture & task authoring
+  - `copper-arch` — runtime architecture & execution model
+  - `copper-core-dev` — core runtime/SDK development
   - `copper-coding-style` — code style & conventions
   - `copper-workflow` — build, test & debugging commands
   - `copper-api-flavor` — taste rules for new user-facing traits

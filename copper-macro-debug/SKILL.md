@@ -7,8 +7,9 @@ description: >-
   the recurring foot-guns (missing `Reflect`/`Freezable`, RON-parse-as-macro-error,
   `sim_mode` divergence, feature-gated lifecycle hooks). Use whenever the
   compiler error mentions `#[copper_runtime]`, points at the `App` struct line,
-  or names a symbol that only exists in expanded code. For everyday task/RON
-  authoring see `copper-arch`; for `just` commands see `copper-workflow`.
+  or names a symbol that only exists in expanded code. For the execution model
+  see `copper-arch`; for changing the macro implementation see `copper-core-dev`;
+  for `just` commands see `copper-workflow`.
 ---
 
 # copper-rs macro debugging

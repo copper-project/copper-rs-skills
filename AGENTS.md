@@ -2,7 +2,8 @@
 
 Each skill lives in its own directory at the repo root:
 
-- `copper-arch/` — architecture & task authoring
+- `copper-arch/` — runtime architecture & execution model
+- `copper-core-dev/` — core runtime/SDK development
 - `copper-coding-style/` — house code style
 - `copper-workflow/` — build, test, debug commands
 - `copper-api-flavor/` — taste rules for new user-facing traits
