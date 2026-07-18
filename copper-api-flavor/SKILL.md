@@ -229,11 +229,3 @@ Ask, honestly:
 Only after all five are clean does the API "feel like copper-rs". Reviews from the
 maintainer (`gbin`) enforce these on the diff line, not in prose — so it's cheaper
 to bake them in from the first sketch.
-
-## Failure exemplar
-
-PR #1180 (the anytime-task PR) is the concrete example these rules were extracted
-against. Its first-round review flagged, in order: `best(&self) -> Output` (rule 1),
-`refine` not receiving input (rule 3), the `OnOverload::parse` string-match with
-`"reuse_last" | "ReuseLast"` (rule 2, both "stringly typed" and "fuzzy"). Anything
-new should not repeat those shapes.
