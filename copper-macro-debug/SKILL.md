@@ -150,10 +150,11 @@ flags before assuming a code bug.
 
 ### 8. `subsystem = "..."` vs flat config
 
-A `subsystem` argument means the RON is a *strict-multi-Copper* config and
-the macro will only embed the named sub-graph. If the RON is a flat config,
-omitting `subsystem` is correct; passing `subsystem` to a flat config is a
-hard error. If the RON is multi-Copper, omitting `subsystem` is a hard error.
+A RON config is either *flat* (one graph — the common case) or *multi-Copper*
+(several named sub-graphs in one file). The macro's `subsystem = "name"`
+argument selects which sub-graph to embed, and it must match the config's
+shape: omit it for a flat config, pass it for a multi-Copper config — either
+mismatch is a hard compile error.
 
 ## Debugging recipe
 
