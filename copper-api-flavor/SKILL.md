@@ -30,7 +30,7 @@ temporary mutable access so it can fill the slot in place; it does not take owne
 the slot or return a separately owned result. This avoids an extra payload copy or clone
 on every cycle and keeps the RT path zero-alloc.
 
-Look at every existing task (`cutask.rs:498, 572–577, 650`):
+Look at the three `process` signatures in `cutask.rs`:
 
 ```rust
 // CuSrcTask
@@ -144,25 +144,25 @@ contracts in each new API would fragment the runtime's message model.
 add only the bounds that a specific method requires.
 
 **Payload derives.** The mandatory set is exactly what `CuMsgPayload` requires
-(`cutask.rs:28–46`):
+(`cutask.rs`):
 
 ```rust
 #[derive(Default, Debug, Clone, Encode, Decode, Serialize, Deserialize, Reflect)]
 ```
 
 `PartialEq` is **not** required by `CuMsgPayload` — many payloads add it because it's
-useful in tests or for equality checks (`cu_ads7883/src/lib.rs:51`,
-`cu_peer_range_accumulator/src/lib.rs:13`), and plenty skip it (`cu_ahrs/src/lib.rs:46`,
+useful in tests or for equality checks (`cu_ads7883/src/lib.rs`,
+`cu_peer_range_accumulator/src/lib.rs`), and plenty skip it (`cu_ahrs/src/lib.rs`,
 `cu_pid` payloads). Add it if your payload wants it; don't advertise it as part of the
 contract.
 
 **Task-struct derives.** Every task struct derives `Reflect`. The extra attribute
 `#[reflect(no_field_bounds, from_reflect = false, type_path = false)]` is needed for
-**generic wrappers and structs with opaque/FFI fields** — see `cu_ratelimit/src/lib.rs:8`
-(generic `<T>`), `cu_python_task/src/lib.rs:620` (PyO3 handles), `cu_mpu9250`, `cu_bmi088`,
+**generic wrappers and structs with opaque/FFI fields** — see `cu_ratelimit/src/lib.rs`
+(generic `<T>`), `cu_python_task/src/lib.rs` (PyO3 handles), `cu_mpu9250`, `cu_bmi088`,
 `cu_dps310`, `cu_gnss_ublox` (hardware/driver fields that don't implement `Reflect`).
 Simple non-generic task structs get away with a plain `#[derive(..., Reflect)]` —
-`cu_pid/src/lib.rs:19` is the canonical example. Use `#[reflect(ignore)]` on individual
+`cu_pid/src/lib.rs` is the canonical example. Use `#[reflect(ignore)]` on individual
 fields that don't derive `Reflect`.
 
 **`Tov` lives on the `CuMsg` envelope, not in the payload** (`pub tov: Tov` in

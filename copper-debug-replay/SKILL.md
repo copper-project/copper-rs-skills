@@ -26,12 +26,6 @@ Sources: `core/cu29_export/src/lib.rs`, `core/cu29_unifiedlog/src/{lib,memmap}.r
 `core/cu29_runtime/src/{replay,app_sim,simulation,remote_debug}.rs`,
 `examples/cu_caterpillar/src/{logreader,resim,determinism}.rs`.
 
-**Line-number citations below are anchors, not addresses** — they drift as these files
-evolve. The durable hooks are the *symbol names* (`ReplayArgs`, `SimOverride`,
-`run_cli`, `struct_log_iterator_unified`, `MAIN_MAGIC`) and the *quoted error/protocol
-strings* (`"log family not found"`, `debug.v1`, `MissingSession`). Grep those if a
-`:NNN` misses.
-
 ## Escalation ladder (deep dive)
 
 Cheapest → richest. Reach for the first that answers the question.
@@ -67,18 +61,18 @@ fn main() {
 The `gen_cumsgs!` macro emits the app-specific decode type from the same RON the app
 was recorded with. **Both must match** — see the "wrong `CuStampedDataSet`" failure mode.
 
-### `run_cli` subcommands (`cu29_export::run_cli`, `core/cu29_export/src/lib.rs:120–225`)
+### `run_cli` subcommands (`cu29_export::run_cli`, `core/cu29_export/src/lib.rs`)
 
 Invoked as `logreader <unifiedlog_base> <subcommand> [flags]`:
 
-| Subcommand | Flags | What it does | Ref |
-|---|---|---|---|
-| `extract-copperlists` | `--export-format {json,csv}` | dump every recorded copperlist as JSON or CSV | `:125, 246, 527` |
-| `extract-text-log <log_index>` | positional path (usually `target/debug/cu29_log_index`) | reconstruct interned text logs | `:123` |
-| `fsck` | `--verbose`, `--dump-runtime-lifecycle` | verify log integrity; optional lifecycle event dump | `:130` |
-| `log-stats` | `--output`, `--config`, `--mission` | stats bundle for DAG rendering | `:138` |
-| `export-mcap` | `--output`, `--progress`, `--quiet` | convert to MCAP (`mcap` feature) | `:151` |
-| `mcap-info` | `--schemas`, `--sample-messages` | inspect MCAP metadata (`mcap` feature) | `:164` |
+| Subcommand | Flags | What it does |
+|---|---|---|
+| `extract-copperlists` | `--export-format {json,csv}` | dump every recorded copperlist as JSON or CSV |
+| `extract-text-log <log_index>` | positional path (usually `target/debug/cu29_log_index`) | reconstruct interned text logs |
+| `fsck` | `--verbose`, `--dump-runtime-lifecycle` | verify log integrity; optional lifecycle event dump |
+| `log-stats` | `--output`, `--config`, `--mission` | stats bundle for DAG rendering |
+| `export-mcap` | `--output`, `--progress`, `--quiet` | convert to MCAP (`mcap` feature) |
+| `mcap-info` | `--schemas`, `--sample-messages` | inspect MCAP metadata (`mcap` feature) |
 
 Canonical justfile recipes (`examples/cu_caterpillar/justfile`): `just cl` (extract
 copperlists), `just logreader` (text log), `just fsck`, `just mcap`.
@@ -88,11 +82,11 @@ copperlists), `just logreader` (text log), `just fsck`, `just mcap`.
 `core/cu29_unifiedlog/src/lib.rs`:
 
 - `MAIN_MAGIC = [0xB4, 0xA5, 0x50, 0xFF]` ("BRASS OFF"), `SECTION_MAGIC = [0xFA, 0x57]`,
-  `UNIFIED_LOG_FORMAT_VERSION = 1` (`:39–47`).
+  `UNIFIED_LOG_FORMAT_VERSION = 1`.
 - Section header carries a `UnifiedLogType` (`CopperList`, `StructuredLogLine`,
-  `RuntimeLifecycle`, `Keyframe`) (`:76–84`).
+  `RuntimeLifecycle`, `Keyframe`).
 - Files are slabs: `app.copper` base + `app_0.copper`, `app_1.copper`, ... The
-  builder discovers them from the **base** path (`memmap.rs:121–125`). Always pass
+  builder discovers them from the **base** path (`memmap.rs`). Always pass
   the base — never `_0` — to any tool.
 
 ## Resim (deterministic replay)
@@ -107,9 +101,9 @@ struct MyAppReSim {}
 `sim_mode = true` opens a callback surface where each `SimStep` can be intercepted:
 `SimOverride::ExecutedBySim` (inject a recorded output), `ExecuteByRuntime` (let the
 task run), or `Errored`. Canonical example:
-`examples/cu_caterpillar/src/resim.rs:22–146`.
+`examples/cu_caterpillar/src/resim.rs`.
 
-### CLI contract (`ReplayArgs`, `core/cu29_runtime/src/replay.rs:55–68`)
+### CLI contract (`ReplayArgs`, `core/cu29_runtime/src/replay.rs`)
 
 ```rust
 #[arg(long)] pub log_base:        Option<PathBuf>,   // recorded log base
@@ -118,18 +112,18 @@ task run), or `Errored`. Canonical example:
 ```
 
 **CLI args only — no env-var fallback.** Defaults are only applied when the flag is
-absent (`replay.rs:119–127`). Do not add parallel `COPPER_LOG_BASE`-style env vars.
+absent (`replay.rs`). Do not add parallel `COPPER_LOG_BASE`-style env vars.
 
 Prefer `cu29::replay::ReplayCli` directly, or embed `ReplayArgs` with
 `#[command(flatten)]` when the binary has its own extra flags (missions, etc.).
 
 Helpers in `replay.rs`:
 
-- `ensure_log_family_exists(log_base)` — verifies the slab set exists (`:134–149`).
-- `first_slab_path(log_base)` — resolves `_0.copper` from a base (`:193–206`).
+- `ensure_log_family_exists(log_base)` — verifies the slab set exists.
+- `first_slab_path(log_base)` — resolves `_0.copper` from a base.
 - `per_session_replay_log_base(template, labels)` — unique output paths using
-  `NEXT_REPLAY_SESSION_ID` and sanitized labels (`:208–236`).
-- `remove_log_family(log_base)` — deletes base + `_0`, `_1`, ... (`:151–191`).
+  `NEXT_REPLAY_SESSION_ID` and sanitized labels.
+- `remove_log_family(log_base)` — deletes base + `_0`, `_1`, ...
 
 ### Keyframes and `Freezable`
 
@@ -139,7 +133,7 @@ keyframe by calling `thaw` on every task. If a stateful task doesn't implement `
 properly, replay from any non-zero copperlist will diverge — this is why every
 stateful task in `copper-component-design` implements it.
 
-Sim-only helpers on the runtime (`core/cu29_runtime/src/app_sim.rs:1–27`):
+Sim-only helpers on the runtime (`core/cu29_runtime/src/app_sim.rs`):
 
 - `set_forced_keyframe_timestamp(ts)` — pin the mock clock to a captured ts.
 - `lock_keyframe(kf)` — restore task state from a specific keyframe.
@@ -173,25 +167,25 @@ justfile.
 ## Remote-debug (`debug.v1`)
 
 Protocol: `core/cu29_runtime/src/remote_debug.rs`. Feature: `remote-debug`.
-Transport: **Zenoh** with these defaults (`:274–277`):
+Transport: **Zenoh** with these defaults:
 
 - Local Unix-socket endpoint derived from `paths.base`.
 - Multicast/gossip scouting disabled.
 - Shared memory enabled, threshold 1 byte, pool 4 MiB.
 
-### Topic layout (base `debug_base`, `:22–31`)
+### Topic layout (base `debug_base`)
 
 - Request: `{base}/rpc/request`
 - Response: `{base}/rpc/reply/{client_id}`
 - Events: `{base}/events/{cursor,run,watch,health}`
 
-### Envelope (`:50–70`)
+### Envelope
 
 Request: `api="debug.v1"`, `request_id`, `session_id?`, `method`, `params`,
 `reply_to`. Response: `request_id` (echoed), `ok`, `result?`, `error?`, `cursor_rev`,
 `resolved_at?`.
 
-### Method surface (`:113–182`)
+### Method surface
 
 | Namespace | Methods (contract) |
 |---|---|
@@ -203,11 +197,11 @@ Request: `api="debug.v1"`, `request_id`, `session_id?`, `method`, `params`,
 | `state.*` | `inspect(path?, at?, depth?)`, `read(path?, at?, format="json")`, `search(query, at?)`, `watch.open(path, at?, mode?)`, `watch.close(watch_id)` |
 | `health.*` | `ping()` (session optional), `stats()` |
 
-Cursor `cursor_rev` (`:73–82`) is a monotonic counter: `nav.seek/step/replay` and
+Cursor `cursor_rev` is a monotonic counter: `nav.seek/step/replay` and
 state-mutating calls bump it; queries preserve it via a temporary restore. Session
 states: `NoSession → OpenCursorUnset → OpenCursorSet → ServerStopping`.
 
-Error codes (`:210–224`): `InvalidApi`, `UnknownMethod`, `MissingSession`,
+Error codes: `InvalidApi`, `UnknownMethod`, `MissingSession`,
 `SessionNotFound`, `SessionLimitReached`, `InvalidParams`, `ResolveFailed`,
 `SeekFailed`, `StepFailed`, `ReplayFailed`, `RunUntilFailed`, `GetClFailed`,
 `TimelineListFailed`, `CursorFailed`, `StateFailed`, `PathNotFound`, `TypeNotFound`.
@@ -215,11 +209,11 @@ Error codes (`:210–224`): `InvalidApi`, `UnknownMethod`, `MissingSession`,
 ### Serving
 
 `cu29::replay::serve_remote_debug(debug_base, log_base, app_factory, build_callback,
-time_of)` (`replay.rs:238–269`, `#[cfg(feature = "remote-debug")]`). Runs a
+time_of)` (`replay.rs`, `#[cfg(feature = "remote-debug")]`). Runs a
 replay-backed Zenoh server on the topic base. The `App` type must implement
 `CuSimApplication + ReflectTaskIntrospection + CurrentRuntimeCopperList<P>`.
 
-Session limits (`remote_debug.rs:89–94`): 15-minute idle timeout, 64 max active
+Session limits (`remote_debug.rs`): 15-minute idle timeout, 64 max active
 sessions, stale eviction on new requests / poll timeouts.
 
 Example client + server: `examples/cu_remote_debug_session/`.
@@ -227,9 +221,9 @@ Example client + server: `examples/cu_remote_debug_session/`.
 ## Python offline analysis
 
 Feature: `cu29_export` with `python`. Module name: `libcu29_export`
-(`core/cu29_export/src/lib.rs:899`).
+(`core/cu29_export/src/lib.rs`).
 
-Iterators (`:738–841`):
+Iterators:
 
 - `struct_log_iterator_bare(path) -> (iter, strings)` — standalone log.
 - `struct_log_iterator_unified(path) -> (iter, strings)` — unified log.
@@ -237,15 +231,15 @@ Iterators (`:738–841`):
   `register_copperlist_python_type::<P>()` first.
 - `runtime_lifecycle_iterator_unified(path)` — mission start/stop, panic, shutdown.
 
-Typed entrypoints (`:66–92`):
+Typed entrypoints:
 
 - `copperlist_iterator_unified_typed_py::<P>(path, py)` — seeds effective config from
   the log then registers the payload type.
 - `runtime_lifecycle_iterator_unified_py(path, py)`.
 
-`PyCuLogEntry` accessors (`:844–896`): `.ts()`, `.msg_index()`, `.culistid()`,
+`PyCuLogEntry` accessors: `.ts()`, `.msg_index()`, `.culistid()`,
 `.component_id()`, `.task_index()`, `.paramname_indexes()`, `.params()`.
-`copperlist_to_py` (`:924–951`) yields a namespace with `id`, `state`, `messages[]`
+`copperlist_to_py` yields a namespace with `id`, `state`, `messages[]`
 each carrying `task_id`, `tov`, `metadata`, `payload`.
 
 ## Common failure modes
@@ -278,8 +272,8 @@ each carrying `task_id`, `tov`, `metadata`, `payload`.
 - **Add `println!` / `eprintln!` for temporary instrumentation.** Use the interned
   `debug!/info!/warning!/error!` macros (see `copper-coding-style`) so the output
   ends up in the same unified log the extractor already reads.
-- **Add env-var fallbacks to the replay CLI.** `replay.rs:119–127` explicitly
-  applies defaults only when the flag is absent.
+- **Add env-var fallbacks to the replay CLI.** `replay.rs` applies defaults only
+  when the flag is absent.
 - **Point the logreader at `foo_0.copper`.** Always the base.
 - **Assume `sim_mode = true` alone gives determinism** — it enables the callback
   surface. Determinism also requires `RobotClock::mock`, stable RON, and

@@ -18,7 +18,7 @@ description: >-
 proc-macro that turns a declarative RON task graph plus a user-written marker
 struct into a concrete `App` with `new`, `run`, `start_all_tasks`, the typed
 copperlist, the resource bundle, and the per-step calls into every task's
-lifecycle methods. The macro lives in `core/cu29_derive/src/lib.rs` (~9.4k lines)
+lifecycle methods. The macro lives in `core/cu29_derive/src/lib.rs`
 and **executes at compile time** — it reads the RON file from disk, resolves
 every task/source/sink/bridge type, computes the execution plan, and emits Rust.
 

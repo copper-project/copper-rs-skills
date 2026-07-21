@@ -62,7 +62,7 @@ your agent's skills directory.
 
 ## Skills
 
-Nine skills, grouped by what you're doing. Each `SKILL.md` cross-references the
+The skills are grouped by what you're doing. Each `SKILL.md` cross-references the
 others by name so the right one is pulled in for a given task.
 
 ### Orientation
