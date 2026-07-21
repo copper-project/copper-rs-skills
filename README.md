@@ -90,9 +90,10 @@ discipline, the interning `debug!/info!/warning!/error!` logging macros
 (`{}`-only), doctests, recurring clippy gotchas, payload trait bounds, test
 layout.
 
-[`copper-api-flavor`](./copper-api-flavor/SKILL.md) — five non-negotiables for
+[`copper-api-flavor`](./copper-api-flavor/SKILL.md) — non-negotiables for
 shaping new user-facing traits and adapters (in-place `&mut` outputs, enums via
-`Deserialize`+`get_value`, no cached inputs, payload/`Tov` placement, `CuTask`
+`Deserialize`+`get_value`, no cached inputs, payload/`Tov` placement, no
+`Option`/nested-enum branching on the hot path, `CuTask`
 lifecycle mirror). **Read this before you sketch a new trait, adapter, or
 config field** — the maintainer enforces these on the diff.
 
@@ -124,7 +125,7 @@ rerun.
 1. Land in the repo → `copper-arch` explains the execution model.
 2. Changing runtime or SDK internals → `copper-core-dev` maps the code and constraints.
 3. **Before you sketch a new user-facing trait, adapter, or config field**, read
-   `copper-api-flavor` — the maintainer enforces these five rules on the diff, so it's
+   `copper-api-flavor` — the maintainer enforces these rules on the diff, so it's
    much cheaper to bake them in than to unpick them at review.
 4. Writing or reviewing Rust → `copper-coding-style` keeps it on-house-style.
 5. Editing `copperconfig.ron` → `copper-ron-config` is the schema reference.

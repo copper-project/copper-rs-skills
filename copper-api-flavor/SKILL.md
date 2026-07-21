@@ -20,7 +20,7 @@ references that established them.
 Authority: `core/cu29_runtime/src/cutask.rs` for the trait shapes; existing
 `components/tasks/*` for canonical usage; `core/cu29_runtime/src/config.rs` for config.
 
-## The five non-negotiables
+## The non-negotiables
 
 ### 1. The runtime owns output memory — write through `&mut`
 
@@ -209,6 +209,44 @@ ctx: &CuContext`, returning `CuResult<()>`). Don't invent new lifecycle names; d
 drop `Freezable`. Mirroring is cheap: everything except `new`/`process` (and `freeze`/
 `thaw`) defaults to a no-op, which is fine for stateless work.
 
+### 6. Every `Option` on the hot path is a branch — decide at compile time what can be decided at compile time
+
+Hot-path methods (`process`, or a step method like an anytime `base`/`refine`) run
+every tick. Each `Option` and each extra enum layer in their signatures is an `if` the
+CPU evaluates and the branch predictor tracks on every single tick — even when 99% of
+the time the answer is "nothing there". Stack a few and you pay several predicted
+branches per tick for no work. Both consequences below were established in the
+`CuAnytimeTask` review (copper-rs PR #1205).
+
+**One layer of signaling.** A hot-path method returns `CuResult<Status>` and the
+outcome is exactly one of: `Err(CuError)` for a real failure, or a plain status
+variant for a controlled outcome (converged, aborted, ...). Never layer the two —
+`CuResult<Option<Status>>`, or a status variant that itself carries an
+`Option<CuError>`, builds "an enum of (CuError, or a Status of (None, or CuError))",
+which the maintainer flags outright. A controlled stop is a variant, not an error; a
+failure is `Err`, not a variant.
+
+**Generics instead of `Option` fields.** The maintainer's rule, verbatim: "what CAN
+be done at compile time HAS to be done at compile time." When a capability varies by
+*task type* — not per tick — encode it in the type system, not in a runtime `Option`.
+The anytime trait's quality report is the canonical example: instead of
+`Option<Quality>` in the status, the status is generic —
+
+```rust
+pub enum AnytimeStatus<Q> {
+    Improved(Q),
+    Converged(Q),
+    Aborted,
+}
+
+// on the trait:
+type Quality: Copy + PartialOrd;   // a normalized ratio, or () if the task can't score
+```
+
+Tasks that can score their result use a quality type; tasks that can't use `()`.
+Monomorphization compiles the branch away, and misconfiguration (a quality target on
+a `()` task) becomes a compile error instead of a runtime check.
+
 ## The taste check (before you send the PR)
 
 Ask, honestly:
@@ -225,7 +263,11 @@ Ask, honestly:
    not in the payload? Bounds on associated payload types stay at `CuMsgPayload` unless
    a specific method demands more?
 5. Is the lifecycle 1:1 with `CuTask`, with `Freezable`? → if not, align it.
+6. Does any hot-path signature stack `Option`s or nest error/status layers?
+   → one `CuResult<Status>` layer: `Err(CuError)` for failure, plain variants for
+   controlled outcomes. Does a runtime `Option` encode a per-task-type capability?
+   → move it into a generic/associated type so it's resolved at compile time.
 
-Only after all five are clean does the API "feel like copper-rs". Reviews from the
+Only after all of these are clean does the API "feel like copper-rs". Reviews from the
 maintainer (`gbin`) enforce these on the diff line, not in prose — so it's cheaper
 to bake them in from the first sketch.

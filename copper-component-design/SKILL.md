@@ -7,7 +7,7 @@ description: >-
   lifecycle hooks to override, how to read the node's RON `config:` block, how
   to declare `Resources<'r>`, when `Freezable` needs a real impl vs the default.
   All patterns are anchored to real crates in `components/`. Complements
-  `copper-arch` (traits + macro overview), `copper-api-flavor` (the five taste
+  `copper-arch` (traits + macro overview), `copper-api-flavor` (the taste
   rules for user-facing traits), and `copper-coding-style` (derives, error
   handling, no_std). For the RON side of the wiring see `copper-ron-config`; for
   build/verify commands see `copper-workflow`.
@@ -29,9 +29,10 @@ Trait anchors (**do not re-derive here**, cite them):
 - `Resources<'r>` model — `core/cu29_runtime/src/resource.rs` (canonical demo:
   `examples/cu_resources_test/src/resources.rs:79–100`)
 
-Before writing anything new, read `copper-api-flavor` — the five rules there (in-place
+Before writing anything new, read `copper-api-flavor` — the rules there (in-place
 `&mut` outputs, `get_value` for enums, no cached inputs, payload/`Tov` placement,
-`CuTask` lifecycle) will get enforced on review regardless of correctness.
+no `Option`/nested-enum branching on the hot path, `CuTask` lifecycle) will get
+enforced on review regardless of correctness.
 
 ## Cross-cutting checklist (applies to all four roles)
 
