@@ -11,11 +11,10 @@ description: >-
 
 # copper-rs API flavor — how new task APIs must feel
 
-The copper-rs runtime's ownership, real-time, and replay models constrain what a
-task-facing API should look like. These shapes are not conventions in isolation: each
-follows from who owns memory, config, time metadata, and lifecycle state. Start from that
-rationale, then apply the resulting rule. This skill gives both, with the exact codebase
-references that established them.
+Every rule below exists because of a concrete ownership, real-time, or replay
+constraint in the runtime — none is a style preference. Each section states the
+constraint first, then the API rule that follows from it, with the codebase references
+that established it.
 
 Authority: `core/cu29_runtime/src/cutask.rs` for the trait shapes; existing
 `components/tasks/*` for canonical usage; `core/cu29_runtime/src/config.rs` for config.
@@ -49,27 +48,16 @@ Inputs come in as `&CuMsg<T>` (or a tuple of refs). Outputs go out as `&mut CuMs
 written via `output.set_payload(...)` / `output.clear_payload()` / mutating fields in
 place. Return value is always `CuResult<()>`.
 
-**API consequence.** This applies to **every** method that produces payload state,
-including read-only-looking accessors. A `fn best(&self) -> Self::Output` still fails
-the rule — even though the receiver is `&self`, the return value is owned, so the
-adapter has to clone into the output slot. Rewrite it to write into a caller-owned
-buffer: `fn write_best(&self, out: &mut Self::Output)` — or accept a `&mut Self::Output`
-directly on the step method that produced the state. No method on a hot-path trait should
-own-return payload data.
-
-Concretely, for an anytime/iterative-refinement trait: don't write
+**API consequence.** No method on a hot-path trait should own-return payload data —
+including read-only-looking accessors. Even with a `&self` receiver, an owned return
+value forces the adapter to clone it into the output slot:
 
 ```rust
 fn best(&self) -> Self::Output;                 // BAD — forces a copy
-```
-
-Write instead something like
-
-```rust
 fn write_best(&self, out: &mut Self::Output);   // GOOD — in-place, zero copy
 ```
 
-and have the adapter's `CuTask::process` pass `output.payload_mut()` (initialised via
+The adapter's `CuTask::process` passes `output.payload_mut()` (initialised via
 `set_payload(Default::default())` if needed) through to the user code.
 
 ### 2. Strong typing over stringly typing — an enum is an index, a string is a parser
@@ -110,10 +98,11 @@ let policy = cfg.get_value::<OnOverload>("on_overload")?.unwrap_or_default();
 ```
 
 Do **not** write a hand-rolled `match s { "reuse_last" | "ReuseLast" => ... }` parser.
-The maintainer will flag both the string-based dispatch ("stringly type thing") and any
-"either casing works" fallback ("we are defining right now the API, why does it need to
-be fuzzy?"). Pick one canonical serialised spelling — snake_case — via serde attributes
-and let the deserializer be the sole source of truth. No dual naming, no free-form parse.
+In review the maintainer flags both halves of that pattern: the stringly-typed dispatch
+itself, and the accept-several-spellings leniency — a new API is being defined from
+scratch, so there is no legacy input to be lenient toward. Pick one canonical serialised
+spelling — snake_case — via serde attributes and let the deserializer be the sole source
+of truth. No dual naming, no free-form parse.
 
 ### 3. The `CopperList` owns per-cycle inputs — borrow instead of caching
 
@@ -211,24 +200,30 @@ drop `Freezable`. Mirroring is cheap: everything except `new`/`process` (and `fr
 
 ### 6. Every `Option` on the hot path is a branch — decide at compile time what can be decided at compile time
 
-Hot-path methods (`process`, or a step method like an anytime `base`/`refine`) run
-every tick. Each `Option` and each extra enum layer in their signatures is an `if` the
-CPU evaluates and the branch predictor tracks on every single tick — even when 99% of
-the time the answer is "nothing there". Stack a few and you pay several predicted
-branches per tick for no work. Both consequences below were established in the
-`CuAnytimeTask` review (copper-rs PR #1205).
+Hot-path methods run every tick — `process`, or the step methods of an adapter such
+as `CuAnytimeTask` (an *anytime* task computes a coarse `base` result, then `refine`s
+it until told to stop). Each `Option` and each extra enum layer in their signatures is
+an `if` the CPU evaluates and the branch predictor tracks on every single tick — even
+when 99% of the time the answer is "nothing there". Stack a few and you pay several
+predicted branches per tick for no work. Both consequences below were established in
+the `CuAnytimeTask` review (copper-rs PR #1205).
 
-**One layer of signaling.** A hot-path method returns `CuResult<Status>` and the
-outcome is exactly one of: `Err(CuError)` for a real failure, or a plain status
-variant for a controlled outcome (converged, aborted, ...). Never layer the two —
-`CuResult<Option<Status>>`, or a status variant that itself carries an
-`Option<CuError>`, builds "an enum of (CuError, or a Status of (None, or CuError))",
-which the maintainer flags outright. A controlled stop is a variant, not an error; a
-failure is `Err`, not a variant.
+**One layer of signaling.** A hot-path method returns `CuResult<Status>`:
+`Err(CuError)` means a real failure, a plain status variant means a controlled
+outcome (converged, aborted, ...). Never nest the two layers:
 
-**Generics instead of `Option` fields.** The maintainer's rule, verbatim: "what CAN
-be done at compile time HAS to be done at compile time." When a capability varies by
-*task type* — not per tick — encode it in the type system, not in a runtime `Option`.
+```rust
+fn refine(&mut self) -> CuResult<Option<Status>>;   // BAD — two ways to say "nothing"
+enum Status { Aborted(Option<CuError>), /* … */ }   // BAD — an error hiding in a variant
+fn refine(&mut self) -> CuResult<Status>;           // GOOD — one layer
+```
+
+A controlled stop is a variant, not an error; a failure is `Err`, not a variant.
+
+**Generics instead of `Option` fields.** The maintainer's standing rule: anything
+that *can* be decided at compile time *must* be decided at compile time. When a
+capability varies by *task type* — not per tick — encode it in the type system, not
+in a runtime `Option`.
 The anytime trait's quality report is the canonical example: instead of
 `Option<Quality>` in the status, the status is generic —
 

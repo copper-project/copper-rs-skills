@@ -122,7 +122,7 @@ rerun.
 3. **Before you sketch a new user-facing trait, adapter, or config field**, read
    `copper-api-flavor` — the maintainer enforces these rules on the diff, so it's
    much cheaper to bake them in than to unpick them at review.
-4. Writing or reviewing Rust → `copper-coding-style` keeps it on-house-style.
+4. Writing or reviewing Rust → `copper-coding-style` keeps it in house style.
 5. Editing `copperconfig.ron` → `copper-ron-config` is the schema reference.
 6. Implementing a source / task / sink / bridge → `copper-component-design`.
 7. Compile-time macro grief → `copper-macro-debug`.

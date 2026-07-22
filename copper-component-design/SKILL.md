@@ -48,21 +48,22 @@ enforced on review regardless of correctness.
 - Config extraction: `.get::<T>` for scalars, `.get_value::<T>` for anything
   structured or enum-shaped. See `copper-ron-config` for the rule.
 - Do **not** stash inputs in `self` across cycles (api-flavor's no-cached-inputs
-  rule). The copperlist
-  already holds them.
+  rule). The copperlist already holds them.
 
-**Stamping `tov`.** `Tov` is a field on the `CuMsg` envelope (`pub tov: Tov` in
-`cutask.rs`; the enum — `None`/`Time`/`Range` — is in `core/cu29_clock/src/lib.rs`),
-never a payload field (api-flavor's payload/`Tov` placement rule), and it means the
-**physical time of
-validity** of the measurement — when the phenomenon was true in the world, not when
-the code ran. A `CuTask` propagates the input's stamp: `output.tov = imu_msg.tov;`
-(`cu_ahrs/src/lib.rs`); re-stamping `ctx.now()` downstream silently replaces the
-measurement's time of validity with processing time. Only a source stamps, and a bare
-`ctx.now()` is wrong even there — by the time `process` runs, the sample is already
-older than the sensor's internal sampling plus the bus transfer. Stamp from the
-sensor's own clock: `cu_hesai/src/lib.rs` derives per-point times from the lidar
-packet's own timestamps and stamps `Tov::Range` over the sweep.
+**Stamping `tov`.** `Tov` means the **physical time of validity** of a measurement —
+when the phenomenon was true in the world, not when the code ran. Three rules:
+
+- It lives on the `CuMsg` envelope (`pub tov: Tov` in `cutask.rs`; the enum —
+  `None`/`Time`/`Range` — is in `core/cu29_clock/src/lib.rs`), never in the payload
+  (api-flavor's payload/`Tov` placement rule).
+- Only a source stamps it. A `CuTask` propagates the input's stamp —
+  `output.tov = imu_msg.tov;` (`cu_ahrs/src/lib.rs`). Re-stamping with `ctx.now()`
+  downstream silently replaces the measurement's time of validity with processing
+  time.
+- Even in a source, a bare `ctx.now()` is wrong — by the time `process` runs, the
+  sample is already older than the sensor's internal sampling plus the bus transfer.
+  Stamp from the sensor's own clock: `cu_hesai/src/lib.rs` derives per-point times
+  from the lidar packet's own timestamps and stamps `Tov::Range` over the sweep.
 
 ## `CuSrcTask` — sensors, data origins
 
@@ -191,8 +192,8 @@ through `freeze`/`thaw`. Otherwise resim after a keyframe will diverge.
 
 **Foot-guns**
 
-- Caching an input in `self` between cycles (api-flavor's no-cached-inputs rule). Ask
-  the input in each `process`.
+- Caching an input in `self` between cycles (api-flavor's no-cached-inputs rule).
+  Re-read the input in each `process`.
 - Not calling `output.clear_payload()` when suppressing output — stale payload leaks
   into the next cycle.
 - Multi-rate inputs without a `cu_aligner`-style buffer produce mis-timed fusions.
