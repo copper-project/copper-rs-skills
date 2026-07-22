@@ -17,43 +17,36 @@ skills-aware agent listed by `npx skills add --help` should work.
 
 ## Install
 
-### Via the `skills` installer (recommended, cross-agent)
-
-Works for both Claude Code and Codex — pick the target(s) from the interactive
-menu (`--agent claude-code`, `--agent codex`, or `--agent '*'`).
-
-Public-repo form:
+### Option 1 — `skills` installer (recommended, any agent)
 
 ```bash
 npx skills add copper-project/copper-rs-skills
 ```
 
-Private-repo form (clone with SSH, install from the local path):
+Working from a private clone? Install from the local path instead:
 
 ```bash
 git clone git@github.com:copper-project/copper-rs-skills.git
 npx skills add "$PWD/copper-rs-skills"
 ```
 
-The installer prompts for skill selection, scope (`-g` for user-global,
-otherwise per-project), and link method (symlink by default, `--copy` to copy).
-Update later with `npx skills update`; remove with `npx skills remove`.
+Manage later with `npx skills update` / `npx skills remove`.
 
-### As a Claude Code plugin (Claude only)
+### Option 2 — Claude Code plugin (Claude only)
 
-This repo is also a Claude Code plugin marketplace
-(`.claude-plugin/marketplace.json`).
+The repo doubles as a plugin marketplace (`.claude-plugin/marketplace.json`):
 
 ```
 /plugin marketplace add copper-project/copper-rs-skills
 /plugin install copper-rs-skills@copper-rs-skills
 ```
 
-Private-repo variant: clone first, then pass the local path to
-`/plugin marketplace add`.
+For a private clone, pass the local path to `/plugin marketplace add`.
 
-Prefer not to use `npx`? Clone the repo and symlink each `SKILL.md` folder into
-your agent's skills directory.
+### Option 3 — manual
+
+Clone the repo and symlink each skill folder into your agent's skills
+directory. Every skill is just a directory with a `SKILL.md`.
 
 ## Skills
 
