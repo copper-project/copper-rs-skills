@@ -36,7 +36,8 @@ then the concrete triggers ("Use when …").
 **Authority order when sources disagree: code > rustdoc/API > wiki/book
 narrative.** Verify claims against source before writing them down; cite
 concrete paths (`core/cu29_runtime/src/cutask.rs`) and `just` targets rather
-than vague guidance.
+than vague guidance. Cite files only, never line numbers — line numbers rot
+as the upstream code moves.
 
 **One concern per skill.** If content fits two, put it in the most specific
 one and cross-reference by skill name.
