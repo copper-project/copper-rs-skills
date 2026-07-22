@@ -7,7 +7,7 @@ description: >-
   lifecycle hooks to override, how to read the node's RON `config:` block, how
   to declare `Resources<'r>`, when `Freezable` needs a real impl vs the default.
   All patterns are anchored to real crates in `components/`. Complements
-  `copper-arch` (traits + macro overview), `copper-api-flavor` (the five taste
+  `copper-arch` (traits + macro overview), `copper-api-flavor` (the taste
   rules for user-facing traits), and `copper-coding-style` (derives, error
   handling, no_std). For the RON side of the wiring see `copper-ron-config`; for
   build/verify commands see `copper-workflow`.
@@ -16,44 +16,45 @@ description: >-
 # copper-rs — component design recipes
 
 `copper-arch` gives you four component roles. This skill is the practical answer to
-"I'm about to implement one — what does a real one look like?" — with the file:line
-citations so you can open the canonical crate side-by-side.
+"I'm about to implement one — what does a real one look like?" — with citations to
+the canonical crates so you can open them side-by-side.
 
 Trait anchors (**do not re-derive here**, cite them):
 
-- `CuSrcTask` — `core/cu29_runtime/src/cutask.rs:441–511`
-- `CuTask` — `cutask.rs:514–590`
-- `CuSinkTask` — `cutask.rs:593–663`
-- `Freezable` (default is no-op) — `cutask.rs:412–425`
-- `CuBridge` — `core/cu29_runtime/src/cubridge.rs:201–263`
+- `CuSrcTask` / `CuTask` / `CuSinkTask`, and `Freezable` (default is no-op) —
+  `core/cu29_runtime/src/cutask.rs`
+- `CuBridge` — `core/cu29_runtime/src/cubridge.rs`
 - `Resources<'r>` model — `core/cu29_runtime/src/resource.rs` (canonical demo:
-  `examples/cu_resources_test/src/resources.rs:79–100`)
+  `examples/cu_resources_test/src/resources.rs`)
 
-Before writing anything new, read `copper-api-flavor` — the five rules there (in-place
+Before writing anything new, read `copper-api-flavor` — the rules there (in-place
 `&mut` outputs, `get_value` for enums, no cached inputs, payload/`Tov` placement,
-`CuTask` lifecycle) will get enforced on review regardless of correctness.
+no `Option`/nested-enum branching on the hot path, `CuTask` lifecycle) will get
+enforced on review regardless of correctness.
 
 ## Cross-cutting checklist (applies to all four roles)
 
 - `#[derive(Reflect)]` on the component struct is mandatory. Add
   `#[reflect(no_field_bounds, from_reflect = false, type_path = false)]` **only** when
-  the struct is generic or holds opaque/FFI fields (e.g. `cu_mpu9250/src/lib.rs:8`,
-  `cu_python_task/src/lib.rs:620`). Otherwise plain `#[derive(..., Reflect)]` (e.g.
-  `cu_pid/src/lib.rs:19`).
+  the struct is generic or holds opaque/FFI fields (e.g. `cu_mpu9250/src/lib.rs`,
+  `cu_python_task/src/lib.rs`). Otherwise plain `#[derive(..., Reflect)]` (e.g.
+  `cu_pid/src/lib.rs`).
 - `impl Freezable for MyComp {}` is required even for stateless components — the trait
-  bound is enforced. Stateless just gets the default no-op impl (`cutask.rs:412`).
+  bound is enforced. Stateless just gets the default no-op impl (`cutask.rs`).
   `impl_default_freeze!` is the ergonomic macro when you have many stateless structs.
 - Payload types satisfy `CuMsgPayload` — see `copper-coding-style` for the derive
   set. Prefer reusing payloads from `components/payloads/cu_sensor_payloads/` when a
   standard type exists (IMU, image, point cloud) instead of inventing a new one.
 - Config extraction: `.get::<T>` for scalars, `.get_value::<T>` for anything
   structured or enum-shaped. See `copper-ron-config` for the rule.
-- Do **not** stash inputs in `self` across cycles (api-flavor rule 3). The copperlist
+- Do **not** stash inputs in `self` across cycles (api-flavor's no-cached-inputs
+  rule). The copperlist
   already holds them.
 
 **Stamping `tov`.** `Tov` is a field on the `CuMsg` envelope (`pub tov: Tov` in
 `cutask.rs`; the enum — `None`/`Time`/`Range` — is in `core/cu29_clock/src/lib.rs`),
-never a payload field (api-flavor rule), and it means the **physical time of
+never a payload field (api-flavor's payload/`Tov` placement rule), and it means the
+**physical time of
 validity** of the measurement — when the phenomenon was true in the world, not when
 the code ran. A `CuTask` propagates the input's stamp: `output.tov = imu_msg.tov;`
 (`cu_ahrs/src/lib.rs`); re-stamping `ctx.now()` downstream silently replaces the
@@ -65,7 +66,7 @@ packet's own timestamps and stamps `Tov::Range` over the sweep.
 
 ## `CuSrcTask` — sensors, data origins
 
-Skeleton (adapted from `components/sources/cu_mpu9250/src/lib.rs:103–203`):
+Skeleton (adapted from `components/sources/cu_mpu9250/src/lib.rs`):
 
 ```rust
 #[derive(Reflect)]
@@ -106,8 +107,8 @@ where SPI: SpiBus<u8>, D: DelayNs,
 
 | Hook | Common use | Example |
 |---|---|---|
-| `new` | config parse + driver construction | `cu_mpu9250/src/lib.rs:170` |
-| `start` | one-shot hardware validation (WHO_AM_I, calibration) | `cu_mpu9250/src/lib.rs:186` |
+| `new` | config parse + driver construction | `cu_mpu9250/src/lib.rs` |
+| `start` | one-shot hardware validation (WHO_AM_I, calibration) | `cu_mpu9250/src/lib.rs` |
 | `preprocess` | non-blocking readiness poll before `process` (streaming APIs) | `cu_v4l/src/lib.rs` frame queue |
 | `process` | required — read hardware, `set_payload`, set `tov` | all sources |
 | `postprocess` | update counters/stats not on the RT path | rare |
@@ -115,9 +116,9 @@ where SPI: SpiBus<u8>, D: DelayNs,
 
 **Message shape:** `type Output<'m> = output_msg!(T);` for single, `output_msg!((A, B))`
 for tuples. Always write via `&mut Self::Output<'o>`; **never** return payload by value
-(api-flavor rule 1).
+(api-flavor's in-place `&mut` output rule).
 
-**Resources:** declare via the `resources!` macro (`cu_mpu9250/src/lib.rs:89–100`), then
+**Resources:** declare via the `resources!` macro (`cu_mpu9250/src/lib.rs`), then
 extract handles in `new` (`res.spi.0`). Bind them from RON with
 `resources: { spi: "board.spi0", ... }` — see `copper-ron-config`.
 
@@ -129,11 +130,11 @@ extract handles in `new` (`res.spi.0`). Bind them from RON with
 - Stamping `tov = ctx.now()` records when the driver ran, not the physical time of
   validity — stamp from the sensor's clock (see **Stamping `tov`**).
 - Tucking a timestamp into the payload struct instead of the envelope violates
-  api-flavor rule 4 — `Tov` lives on `CuMsg`, never in the payload.
+  api-flavor's payload/`Tov` placement rule — `Tov` lives on `CuMsg`, never in the payload.
 
 ## `CuTask` — compute, filters, fusion
 
-Skeleton (from `components/tasks/cu_ratelimit/src/lib.rs:59–111`):
+Skeleton (from `components/tasks/cu_ratelimit/src/lib.rs`):
 
 ```rust
 #[derive(Reflect)]
@@ -169,7 +170,7 @@ impl<T: CuMsgPayload> CuTask for CuRateLimit<T> {
 }
 ```
 
-**Multi-input** (`components/tasks/cu_aligner/src/lib.rs:40–46`):
+**Multi-input** (`components/tasks/cu_aligner/src/lib.rs`):
 
 ```rust
 type Input<'m>  = input_msg!('m, f32, i32);   // tuple: (&CuMsg<f32>, &CuMsg<i32>)
@@ -180,9 +181,9 @@ Index inputs by position: `input.0.payload()`, `input.1.payload()`.
 
 **Stateful tasks that need real `Freezable`:**
 
-- `cu_pid/src/lib.rs:143–154` — integral, last_error, elapsed, last_output
-- `cu_ratelimit/src/lib.rs:45–56` — last tov
-- `cu_peer_range_accumulator/src/lib.rs:47–55` — sample slot array
+- `cu_pid/src/lib.rs` — integral, last_error, elapsed, last_output
+- `cu_ratelimit/src/lib.rs` — last tov
+- `cu_peer_range_accumulator/src/lib.rs` — sample slot array
 - `cu_aligner` — alignment buffer
 
 Rule of thumb: if a field influences the next cycle's output, it must round-trip
@@ -190,8 +191,8 @@ through `freeze`/`thaw`. Otherwise resim after a keyframe will diverge.
 
 **Foot-guns**
 
-- Caching an input in `self` between cycles (api-flavor rule 3). Ask the input in each
-  `process`.
+- Caching an input in `self` between cycles (api-flavor's no-cached-inputs rule). Ask
+  the input in each `process`.
 - Not calling `output.clear_payload()` when suppressing output — stale payload leaks
   into the next cycle.
 - Multi-rate inputs without a `cu_aligner`-style buffer produce mis-timed fusions.
@@ -200,7 +201,7 @@ through `freeze`/`thaw`. Otherwise resim after a keyframe will diverge.
 
 ## `CuSinkTask` — actuators, terminal endpoints
 
-Skeleton (from `components/sinks/cu_rp_gpio/src/lib.rs:50–100`):
+Skeleton (from `components/sinks/cu_rp_gpio/src/lib.rs`):
 
 ```rust
 #[derive(Reflect)]
@@ -230,7 +231,7 @@ impl CuSinkTask for RPGpio {
 **Lifecycle hooks that show up in real sinks:**
 
 - `new` claims the hardware handle from `Resources`.
-- `start` opens/validates the device (e.g. `cu_lewansoul/src/lib.rs:68–125` probes
+- `start` opens/validates the device (e.g. `cu_lewansoul/src/lib.rs` probes
   the servo bus).
 - `process` writes the payload — usually a small match on the command variant.
 - `stop` closes fds / releases the handle.
@@ -248,9 +249,9 @@ serialize the queue in `freeze`.
 
 A bridge is **not** a source+sink pair. It owns a single transport session
 (serial port, Zenoh session, CAN bus) and multiplexes Tx and Rx over that session in
-one lifecycle. Trait: `cubridge.rs:201–263`.
+one lifecycle. Trait: `cubridge.rs`.
 
-Channel enums are declared via macros (`cubridge.rs:466–512`):
+Channel enums are declared via macros (`cubridge.rs`):
 
 ```rust
 tx_channels! { state => StateMsg, [publish_empty] cmd => CmdMsg = "motor/cmd" }
@@ -260,7 +261,7 @@ rx_channels! { feedback => FeedbackMsg = "sensor/feedback", status => StatusMsg 
 Each macro generates a typed channel enum plus a descriptor list. The RON side
 declares matching channels — see `copper-ron-config`'s bridge section.
 
-Skeleton (from `components/bridges/cu_msp_bridge/src/lib.rs:351–428`):
+Skeleton (from `components/bridges/cu_msp_bridge/src/lib.rs`):
 
 ```rust
 impl<S, E> CuBridge for CuMspBridge<S, E>
@@ -305,8 +306,8 @@ sink.
   couples per-channel dispatch to I/O timing.
 - Not flushing pending buffers on `stop` — messages disappear on shutdown.
 - Runtime channel type mismatches: `send`/`receive` do `downcast_ref`/`downcast_mut`
-  (`cu_msp_bridge:391, 414`); a mismatch is a codegen bug, not a bridge bug.
-- Forgetting that bridges default `run_in_sim: true` (RON side; `config.rs:1026`).
+  (`cu_msp_bridge/src/lib.rs`); a mismatch is a codegen bug, not a bridge bug.
+- Forgetting that bridges default `run_in_sim: true` (RON side; `config.rs`).
   If a real transport shouldn't run under sim, set it explicitly.
 
 ## Cross-cutting patterns table

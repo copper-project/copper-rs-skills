@@ -20,7 +20,7 @@ references that established them.
 Authority: `core/cu29_runtime/src/cutask.rs` for the trait shapes; existing
 `components/tasks/*` for canonical usage; `core/cu29_runtime/src/config.rs` for config.
 
-## The five non-negotiables
+## The non-negotiables
 
 ### 1. The runtime owns output memory — write through `&mut`
 
@@ -30,7 +30,7 @@ temporary mutable access so it can fill the slot in place; it does not take owne
 the slot or return a separately owned result. This avoids an extra payload copy or clone
 on every cycle and keeps the RT path zero-alloc.
 
-Look at every existing task (`cutask.rs:498, 572–577, 650`):
+Look at the three `process` signatures in `cutask.rs`:
 
 ```rust
 // CuSrcTask
@@ -144,25 +144,25 @@ contracts in each new API would fragment the runtime's message model.
 add only the bounds that a specific method requires.
 
 **Payload derives.** The mandatory set is exactly what `CuMsgPayload` requires
-(`cutask.rs:28–46`):
+(`cutask.rs`):
 
 ```rust
 #[derive(Default, Debug, Clone, Encode, Decode, Serialize, Deserialize, Reflect)]
 ```
 
 `PartialEq` is **not** required by `CuMsgPayload` — many payloads add it because it's
-useful in tests or for equality checks (`cu_ads7883/src/lib.rs:51`,
-`cu_peer_range_accumulator/src/lib.rs:13`), and plenty skip it (`cu_ahrs/src/lib.rs:46`,
+useful in tests or for equality checks (`cu_ads7883/src/lib.rs`,
+`cu_peer_range_accumulator/src/lib.rs`), and plenty skip it (`cu_ahrs/src/lib.rs`,
 `cu_pid` payloads). Add it if your payload wants it; don't advertise it as part of the
 contract.
 
 **Task-struct derives.** Every task struct derives `Reflect`. The extra attribute
 `#[reflect(no_field_bounds, from_reflect = false, type_path = false)]` is needed for
-**generic wrappers and structs with opaque/FFI fields** — see `cu_ratelimit/src/lib.rs:8`
-(generic `<T>`), `cu_python_task/src/lib.rs:620` (PyO3 handles), `cu_mpu9250`, `cu_bmi088`,
+**generic wrappers and structs with opaque/FFI fields** — see `cu_ratelimit/src/lib.rs`
+(generic `<T>`), `cu_python_task/src/lib.rs` (PyO3 handles), `cu_mpu9250`, `cu_bmi088`,
 `cu_dps310`, `cu_gnss_ublox` (hardware/driver fields that don't implement `Reflect`).
 Simple non-generic task structs get away with a plain `#[derive(..., Reflect)]` —
-`cu_pid/src/lib.rs:19` is the canonical example. Use `#[reflect(ignore)]` on individual
+`cu_pid/src/lib.rs` is the canonical example. Use `#[reflect(ignore)]` on individual
 fields that don't derive `Reflect`.
 
 **`Tov` lives on the `CuMsg` envelope, not in the payload** (`pub tov: Tov` in
@@ -209,6 +209,44 @@ ctx: &CuContext`, returning `CuResult<()>`). Don't invent new lifecycle names; d
 drop `Freezable`. Mirroring is cheap: everything except `new`/`process` (and `freeze`/
 `thaw`) defaults to a no-op, which is fine for stateless work.
 
+### 6. Every `Option` on the hot path is a branch — decide at compile time what can be decided at compile time
+
+Hot-path methods (`process`, or a step method like an anytime `base`/`refine`) run
+every tick. Each `Option` and each extra enum layer in their signatures is an `if` the
+CPU evaluates and the branch predictor tracks on every single tick — even when 99% of
+the time the answer is "nothing there". Stack a few and you pay several predicted
+branches per tick for no work. Both consequences below were established in the
+`CuAnytimeTask` review (copper-rs PR #1205).
+
+**One layer of signaling.** A hot-path method returns `CuResult<Status>` and the
+outcome is exactly one of: `Err(CuError)` for a real failure, or a plain status
+variant for a controlled outcome (converged, aborted, ...). Never layer the two —
+`CuResult<Option<Status>>`, or a status variant that itself carries an
+`Option<CuError>`, builds "an enum of (CuError, or a Status of (None, or CuError))",
+which the maintainer flags outright. A controlled stop is a variant, not an error; a
+failure is `Err`, not a variant.
+
+**Generics instead of `Option` fields.** The maintainer's rule, verbatim: "what CAN
+be done at compile time HAS to be done at compile time." When a capability varies by
+*task type* — not per tick — encode it in the type system, not in a runtime `Option`.
+The anytime trait's quality report is the canonical example: instead of
+`Option<Quality>` in the status, the status is generic —
+
+```rust
+pub enum AnytimeStatus<Q> {
+    Improved(Q),
+    Converged(Q),
+    Aborted,
+}
+
+// on the trait:
+type Quality: Copy + PartialOrd;   // a normalized ratio, or () if the task can't score
+```
+
+Tasks that can score their result use a quality type; tasks that can't use `()`.
+Monomorphization compiles the branch away, and misconfiguration (a quality target on
+a `()` task) becomes a compile error instead of a runtime check.
+
 ## The taste check (before you send the PR)
 
 Ask, honestly:
@@ -225,7 +263,11 @@ Ask, honestly:
    not in the payload? Bounds on associated payload types stay at `CuMsgPayload` unless
    a specific method demands more?
 5. Is the lifecycle 1:1 with `CuTask`, with `Freezable`? → if not, align it.
+6. Does any hot-path signature stack `Option`s or nest error/status layers?
+   → one `CuResult<Status>` layer: `Err(CuError)` for failure, plain variants for
+   controlled outcomes. Does a runtime `Option` encode a per-task-type capability?
+   → move it into a generic/associated type so it's resolved at compile time.
 
-Only after all five are clean does the API "feel like copper-rs". Reviews from the
+Only after all of these are clean does the API "feel like copper-rs". Reviews from the
 maintainer (`gbin`) enforce these on the diff line, not in prose — so it's cheaper
 to bake them in from the first sketch.
