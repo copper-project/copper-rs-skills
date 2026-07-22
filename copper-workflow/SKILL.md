@@ -34,7 +34,7 @@ the narrowest fitting target; default to `just pr-check`. Default branch is `mas
 Tooling: builds need **Rust 1.95+** (edition 2024). `just` targets self-check for required
 tools and print the `cargo install` line if missing (`taplo-cli`, `fmtron`, `prek`,
 `cargo-nextest`, `cargo-llvm-cov`, `cargo-public-api@0.51.0`, `cargo-expand`). The public-API
-check needs the **nightly** toolchain. Per-directory `justfile`s under `examples/`,
+check needs a **pinned nightly** toolchain (`PUBLIC_API_TOOLCHAIN` in the justfile). Per-directory `justfile`s under `examples/`,
 `components/`, etc. `import "../../justfile"` and add app-specific targets (`cl`, `resim`,
 `mcap`, ...). The workspace is large/hardware-heavy: **package-focused verification
 (`-p <crate>`) is often more pragmatic than a full-workspace run.**

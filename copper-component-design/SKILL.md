@@ -41,7 +41,6 @@ enforced on review regardless of correctness.
   `cu_pid/src/lib.rs`).
 - `impl Freezable for MyComp {}` is required even for stateless components — the trait
   bound is enforced. Stateless just gets the default no-op impl (`cutask.rs`).
-  `impl_default_freeze!` is the ergonomic macro when you have many stateless structs.
 - Payload types satisfy `CuMsgPayload` — see `copper-coding-style` for the derive
   set. Prefer reusing payloads from `components/payloads/cu_sensor_payloads/` when a
   standard type exists (IMU, image, point cloud) instead of inventing a new one.
@@ -189,6 +188,10 @@ Index inputs by position: `input.0.payload()`, `input.1.payload()`.
 
 Rule of thumb: if a field influences the next cycle's output, it must round-trip
 through `freeze`/`thaw`. Otherwise resim after a keyframe will diverge.
+
+When several structs each freeze a few named fields, the app-local
+`impl_freezable_fields!` macro in `examples/cu_runtime_matrix/src/lib.rs` is a
+copyable pattern (it is private to that example, not an SDK export).
 
 **Foot-guns**
 

@@ -66,9 +66,7 @@ one of these, you are looking for generated code; expand the macro.**
 
 `just expand-runtime pkg=<crate> bin=<bin> [features=feat1,feat2]` runs
 `cargo +stable expand -p <crate> --bin <bin>`. Output is thousands of lines;
-pipe through the repo's `support/agent/agent-expand.sh` (if present) to get
-just the section around a symbol of interest, otherwise pipe to `less` and
-search.
+pipe to `less` and search.
 
 When you need an even narrower slice, `grep -n` for one of the generated symbol
 names listed above to land near the interesting region — `fn run(`,
@@ -94,7 +92,8 @@ Every task type must derive `Reflect` (in addition to `Default + Debug`). The
 copper-rs Reflect derive lives in `cu29_runtime::reflect`; importing
 `cu29::prelude::*` brings it in. Missing `Reflect` shows up only when the
 macro expands and tries to register the task. Same applies to `Freezable` —
-even *stateless* tasks need the trait (use `impl_default_freeze!`).
+even *stateless* tasks need the trait (`impl Freezable for MyTask {}` — the
+default methods are a no-op).
 
 ### 3. "the trait bound `MyPayload: Encode` is not satisfied" (or `Decode`, `Serialize`, `DeserializeOwned`)
 
@@ -108,8 +107,8 @@ the payload definition. Re-derive the missing trait on the payload type.
 The macro reads the RON file with `read_to_string` and calls the runtime
 parser. Bad RON does **not** produce a friendly parse-error pointer at the RON
 file — it produces a `compile_error!` at the `#[copper_runtime(...)]` span
-saying e.g. `unexpected ident`. Always re-format the RON with `fmtron` (or
-`support/agent/agent-ron-fmt.sh`) before assuming a code-level bug.
+saying e.g. `unexpected ident`. Always re-format the RON with `fmtron` (via
+`just fmt`) before assuming a code-level bug.
 
 ### 5. `proc-macro panicked`
 
