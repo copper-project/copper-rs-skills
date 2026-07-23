@@ -59,10 +59,13 @@ when the phenomenon was true in the world, not when the code ran. Three rules:
   `output.tov = imu_msg.tov;` (`cu_ahrs/src/lib.rs`). Re-stamping with `ctx.now()`
   downstream silently replaces the measurement's time of validity with processing
   time.
-- Even in a source, a bare `ctx.now()` is wrong — by the time `process` runs, the
-  sample is already older than the sensor's internal sampling plus the bus transfer.
-  Stamp from the sensor's own clock: `cu_hesai/src/lib.rs` derives per-point times
-  from the lidar packet's own timestamps and stamps `Tov::Range` over the sweep.
+- Even in a source, a bare `ctx.now()` is imprecise — by the time `process` runs,
+  the sample is already older than the sensor's internal sampling plus the bus
+  transfer. Stamp from the sensor's own clock where the driver exposes one:
+  `cu_hesai/src/lib.rs` derives per-point times from the lidar packet's own
+  timestamps and stamps `Tov::Range` over the sweep. Where no sample clock is
+  available, `ctx.now()` is the accepted best-effort fallback —
+  `cu_mpu9250/src/lib.rs` does exactly that.
 
 ## `CuSrcTask` — sensors, data origins
 
@@ -95,7 +98,8 @@ where SPI: SpiBus<u8>, D: DelayNs,
     fn process<'o>(&mut self, _ctx: &CuContext,
                    new_msg: &mut Self::Output<'o>) -> CuResult<()> {
         let raw = self.driver.read()?;
-        // tov = the sensor's own sample time, not the host clock — see Stamping `tov`
+        // tov: prefer the sensor's own sample time — see Stamping `tov`
+        // (cu_mpu9250 itself has no sample clock and falls back to ctx.now())
         new_msg.tov = Tov::Time(raw.sample_time);
         new_msg.set_payload(ImuPayload::from(raw));
         Ok(())
@@ -109,10 +113,10 @@ where SPI: SpiBus<u8>, D: DelayNs,
 |---|---|---|
 | `new` | config parse + driver construction | `cu_mpu9250/src/lib.rs` |
 | `start` | one-shot hardware validation (WHO_AM_I, calibration) | `cu_mpu9250/src/lib.rs` |
-| `preprocess` | non-blocking readiness poll before `process` (streaming APIs) | `cu_v4l/src/lib.rs` frame queue |
+| `preprocess` | non-blocking readiness poll before `process` (streaming APIs) | no source in the tree uses it today; `cu_aligner` (task) and `cu_msp_bridge` (bridge) show the pattern |
 | `process` | required — read hardware, `set_payload`, set `tov` | all sources |
 | `postprocess` | update counters/stats not on the RT path | rare |
-| `stop` | release fd / detach hardware | `cu_gnss_ublox`, `cu_v4l` |
+| `stop` | release fd / detach hardware | `cu_v4l`, `cu_vlp16`, `cu_rp_encoder` |
 
 **Message shape:** `type Output<'m> = output_msg!(T);` for single, `output_msg!((A, B))`
 for tuples. Always write via `&mut Self::Output<'o>`; **never** return payload by value
@@ -128,7 +132,8 @@ extract handles in `new` (`res.spi.0`). Bind them from RON with
   readiness and only `process` when data is ready.
 - Forgetting `new_msg.tov = ...` leaves downstream tasks with a stale/`None` timestamp.
 - Stamping `tov = ctx.now()` records when the driver ran, not the physical time of
-  validity — stamp from the sensor's clock (see **Stamping `tov`**).
+  validity — stamp from the sensor's clock when the driver exposes one; `ctx.now()`
+  is only a last-resort fallback (see **Stamping `tov`**).
 - Tucking a timestamp into the payload struct instead of the envelope violates
   api-flavor's payload/`Tov` placement rule — `Tov` lives on `CuMsg`, never in the payload.
 
@@ -211,13 +216,14 @@ Skeleton (from `components/sinks/cu_rp_gpio/src/lib.rs`):
 #[derive(Reflect)]
 pub struct RPGpio { #[reflect(ignore)] pin: LinuxOutputPin }
 
-pub struct GpioResources<'r> { pub pin: Owned<'r, LinuxOutputPin> }
-// impl ResourceBindings<'r> for GpioResources<'r> { ... }
+// `Owned<T>` takes no lifetime — only `Borrowed<'r, T>` does (`resource.rs`)
+pub struct GpioResources { pub pin: Owned<LinuxOutputPin> }
+// impl ResourceBindings<'r> for GpioResources { ... }
 
 impl Freezable for RPGpio {}
 
 impl CuSinkTask for RPGpio {
-    type Resources<'r> = GpioResources<'r>;
+    type Resources<'r> = GpioResources;
     type Input<'m>    = input_msg!(RPGpioPayload);
 
     fn new(_cfg: Option<&ComponentConfig>, res: Self::Resources<'_>) -> CuResult<Self> {
@@ -235,8 +241,8 @@ impl CuSinkTask for RPGpio {
 **Lifecycle hooks that show up in real sinks:**
 
 - `new` claims the hardware handle from `Resources`.
-- `start` opens/validates the device (e.g. `cu_lewansoul/src/lib.rs` probes
-  the servo bus).
+- `start` opens/validates the device (e.g. `cu_zenoh_sink/src/lib.rs` opens the
+  Zenoh session; `cu_rp_sn754410/src/lib.rs` enables the PWM outputs).
 - `process` writes the payload — usually a small match on the command variant.
 - `stop` closes fds / releases the handle.
 

@@ -63,9 +63,12 @@ the type must still exist. Guard illegal feature combos with `compile_error!` (e
 
 `debug!`/`info!`/`warning!`/`error!`/`critical!` are proc macros (`cu29_log_derive`) that
 **intern** the format string into the unified log. Constraints that bite:
-- the first arg must be a **string literal**;
-- **only `{}` placeholders** are supported — no `{name}`, no `{:?}`, no format specs,
-  no positional `{0}`. Pass values as trailing args: `debug!("id={} ok={}", id, ok)`.
+- the first arg is a **string literal**, optionally preceded by a `CuContext`
+  expression (`debug!(ctx, "msg {}", val)`) that attaches callsite origin metadata;
+- accepted placeholder forms (`cu29_log_derive`): plain `{}` with trailing args
+  (`debug!("id={} ok={}", id, ok)`), named params (`debug!("a = {}", my_value = a)`),
+  and std-style inline capture with optional format spec (`debug!("hash: {hash:?}")`).
+  **Not** supported: positional `{0}` and bare `{:?}` without an identifier.
 - they compile out below the active `log-level-*` feature (`critical!` always stays).
   **Default (no `log-level-*` feature set) is profile-driven** via
   `core/cu29_log_derive/build.rs`: **`debug` in dev builds, `info` in release** — so a
