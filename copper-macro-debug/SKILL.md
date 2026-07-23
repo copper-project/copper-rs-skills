@@ -16,8 +16,8 @@ description: >-
 
 `#[copper_runtime(config = "copperconfig.ron", sim_mode = false)]` is the single
 proc-macro that turns a declarative RON task graph plus a user-written marker
-struct into a concrete `App` with `new`, `run`, `start_all_tasks`, the typed
-copperlist, the resource bundle, and the per-step calls into every task's
+struct into a concrete `App` with a generated builder, `run`, `start_all_tasks`,
+the typed copperlist, the resource bundle, and the per-step calls into every task's
 lifecycle methods. The macro lives in `core/cu29_derive/src/lib.rs`
 and **executes at compile time** — it reads the RON file from disk, resolves
 every task/source/sink/bridge type, computes the execution plan, and emits Rust.
@@ -32,7 +32,7 @@ Trigger on any of these signals:
 - A compile error span points at `#[copper_runtime(...)]` or the line below it.
 - An error message contains `to_compile_error`, `proc-macro panicked`,
   `cannot find type ... in this scope` where the missing symbol is something
-  like `CuStampedDataSet`, `CuList`, `App`, `CuTasks`, `__copper_runtime_*`.
+  like `CuStampedDataSet`, `CuList`, `App`, `CuTasks`, `__cu_*`.
 - A trait error names a method the user never wrote (`start`, `preprocess`,
   `process`, `postprocess`, `stop`, `freeze`, `thaw`) on the `App` struct.
 - The compiler complains about `Reflect`, `Freezable`, `Encode`, `Decode`,
@@ -42,15 +42,20 @@ Trigger on any of these signals:
 
 ## Mental model of what the macro emits
 
-The macro takes the *marker* `struct App;` (or `pub struct App { ... }`) and
-rewrites it into a full runtime. After expansion the type contains:
+The macro takes the *marker* `struct App {}` (or `pub struct App { ... }`; a
+unit `struct App;` makes the macro panic — it only accepts brace/tuple structs)
+and rewrites it into a full runtime. After expansion the type contains:
 
-- `copper_runtime: CuRuntime<...>` — the engine (always added).
-- One typed field per task in the RON `tasks: [...]` list.
+- Three fields: `copper_runtime: CuRuntime<...>` (the engine),
+  `runtime_lifecycle_stream`, and `logger_runtime`. There is **no** per-task
+  field — tasks live positionally in the `copper_runtime.tasks` tuple and are
+  accessed by index.
 - A generated `CuStampedDataSet` (the concrete copperlist payload type).
-- A generated `CuTasks` tuple over every task.
-- A generated `impl App { fn new(...) -> CuResult<Self>; fn run(...) -> ...;
-  fn start_all_tasks(...); fn stop_all_tasks(...); ... }`.
+- A generated `CuTasks` tuple type over every task.
+- A generated builder: `App::builder()` returns an `AppBuilder` with
+  `with_clock(..)`, `with_log_path(..)`, `with_sim_callback(..)` (sim mode only)
+  and `build() -> CuResult<App>` — there is **no** generated `App::new` — plus
+  `impl App { fn run(...); fn start_all_tasks(...); fn stop_all_tasks(...); ... }`.
 - Per-step blocks that call `task.preprocess(ctx)?; task.process(...)?;
   task.postprocess(ctx)?;` in execution order.
 - Optional `rtsan` / `memory_monitoring` scope guards around each task step,
@@ -58,8 +63,8 @@ rewrites it into a full runtime. After expansion the type contains:
   `feature = "memory_monitoring"`). Default builds elide them.
 
 The user's source therefore does *not* contain — but the compiler thinks does:
-`App::new`, `App::run`, `App::start_all_tasks`, `CuStampedDataSet`,
-`CuTasks`, every per-task field name. **If the IDE/jump-to-definition fails on
+`App::builder`, `App::run`, `App::start_all_tasks`, `CuStampedDataSet`,
+`CuTasks`, the `AppBuilder` type. **If the IDE/jump-to-definition fails on
 one of these, you are looking for generated code; expand the macro.**
 
 ## How to expand
@@ -125,13 +130,16 @@ failures. The panic message is informative; read it. Common root causes:
 
 ### 6. `sim_mode = true` produces a different shape
 
-When `sim_mode = true`, the macro emits a runtime that **does not own real
-tasks**; instead each task slot is a `SimTask` callback the user provides at
-runtime. The generated `App::new` signature gains a `sim_callback` parameter.
-Two consequences:
+When `sim_mode = true`, the macro replaces source tasks not marked
+`run_in_sim` with placeholder types (`CuSimSrcTask` / `CuSimSrcTaskPack`);
+`run_in_sim` tasks keep their real type. The user supplies a
+`sim_callback: impl FnMut(SimStep) -> SimOverride` via
+`App::builder().with_sim_callback(&mut cb)`, and the lifecycle methods
+(`start_all_tasks`, `run_one_iteration`, `run`, `stop_all_tasks`) each take the
+callback as a parameter. Two consequences:
 
-- A real-mode and sim-mode binary built from the same RON will have
-  *different* `App::new` arities. The sim binary is a separate `main.rs`.
+- A real-mode and sim-mode binary built from the same RON have *different*
+  builder and lifecycle-method signatures. The sim binary is a separate `main.rs`.
 - `ignore_resources = true` is **only** legal with `sim_mode = true` — the
   macro emits a `compile_error!` otherwise.
 

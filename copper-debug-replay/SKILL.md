@@ -84,7 +84,9 @@ copperlists), `just logreader` (text log), `just fsck`, `just mcap`.
 - `MAIN_MAGIC = [0xB4, 0xA5, 0x50, 0xFF]` ("BRASS OFF"), `SECTION_MAGIC = [0xFA, 0x57]`,
   `UNIFIED_LOG_FORMAT_VERSION = 1`.
 - Section header carries a `UnifiedLogType` (`CopperList`, `StructuredLogLine`,
-  `RuntimeLifecycle`, `Keyframe`).
+  `RuntimeLifecycle`, `FrozenTasks` — keyframes are logged under `FrozenTasks`;
+  there is no `Keyframe` variant — plus `Empty`/`LastEntry` markers,
+  `core/cu29_traits/src/lib.rs`).
 - Files are slabs: `app.copper` base + `app_0.copper`, `app_1.copper`, ... The
   builder discovers them from the **base** path (`memmap.rs`). Always pass
   the base — never `_0` — to any tool.
@@ -161,8 +163,8 @@ copper_app.run_one_iteration(&mut sim_callback)?;
 `determinism_ci`). CI runs it single-threaded with `COPPER_DETERMINISM_ITERS=N` to
 replay N times and byte-compare the resulting log against the original. If you
 change execution/replay behavior, expect to keep it green. See
-`examples/cu_caterpillar/src/determinism.rs` and `just determinism` in the crate's
-justfile.
+`examples/cu_caterpillar/src/determinism.rs`; it runs via `cargo test` with the
+`determinism_ci` feature — there is no dedicated `just` recipe for it.
 
 ## Remote-debug (`debug.v1`)
 
@@ -171,7 +173,9 @@ Transport: **Zenoh** with these defaults:
 
 - Local Unix-socket endpoint derived from `paths.base`.
 - Multicast/gossip scouting disabled.
-- Shared memory enabled, threshold 1 byte, pool 4 MiB.
+- Shared memory enabled, message-size threshold 3 KiB
+  (`LOCAL_SHM_MESSAGE_THRESHOLD_BYTES`; the module's own doc-comment still says
+  "1 byte" — the compiled constant wins), pool 4 MiB.
 
 ### Topic layout (base `debug_base`)
 

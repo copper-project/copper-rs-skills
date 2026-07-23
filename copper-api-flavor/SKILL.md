@@ -114,13 +114,20 @@ the cycle it came from.
 **API consequence.** Receive the input as a parameter instead of requiring the task to
 stash it in `self` between calls.
 
-If you're designing a multi-step user trait (e.g. `base(input)` then a loop of
-`refine()`), give `refine` the input too, or refactor so the adapter drives the loop
-with the input in scope. Do not push that duplicate ownership onto the user:
+For a multi-step trait whose steps all run within one cycle, give every step the
+input, or refactor so the adapter drives the loop with the input in scope — don't
+push duplicate ownership onto the user
+(`struct MyThing { cached_input: Option<Input>, ... }`).
 
-```rust
-struct MyThing { cached_input: Option<Input>, ... }
-```
+**The carve-out — work that outlives the copperlist.** This rule holds only while
+the copperlist outlives the work. `CuAnytimeTask`
+(`core/cu29_runtime/src/cutask_anytime.rs`) deliberately gives `refine()` **no**
+input: in background placements refinement quanta outlive the copperlist that
+carried the input, so a borrow cannot legally reach `refine()`, and `base()` is
+*required* to capture into the task's own per-job state everything refinement
+will need. Capturing derived per-job state there is the correct pattern, not a
+violation — the anti-pattern is stashing the raw input "just in case" when a
+borrow would do.
 
 ### 4. Payload contracts keep storage, tooling, and replay uniform
 
@@ -141,8 +148,8 @@ add only the bounds that a specific method requires.
 
 `PartialEq` is **not** required by `CuMsgPayload` — many payloads add it because it's
 useful in tests or for equality checks (`cu_ads7883/src/lib.rs`,
-`cu_peer_range_accumulator/src/lib.rs`), and plenty skip it (`cu_ahrs/src/lib.rs`,
-`cu_pid` payloads). Add it if your payload wants it; don't advertise it as part of the
+`cu_peer_range_accumulator/src/lib.rs`, `cu_ahrs/src/lib.rs`), and others skip it
+(`cu_pid` payloads). Add it if your payload wants it; don't advertise it as part of the
 contract.
 
 **Task-struct derives.** Every task struct derives `Reflect`. The extra attribute
@@ -194,15 +201,20 @@ silently leaves state outside keyframes, so resim diverges (see `copper-arch`).
 **API consequence.** Mirror `new`, `start`, `preprocess`, `process`, `postprocess`,
 `stop`, plus `Freezable` (`freeze`/`thaw`). Every user-facing task trait — including
 adapters — must expose the same lifecycle with the same signatures (`&mut self,
-ctx: &CuContext`, returning `CuResult<()>`). Don't invent new lifecycle names; don't
-drop `Freezable`. Mirroring is cheap: everything except `new`/`process` (and `freeze`/
-`thaw`) defaults to a no-op, which is fine for stateless work.
+ctx: &CuContext`, returning `CuResult<()>`). Don't rename or drop the bracket
+phases; don't drop `Freezable`. A trait may split the `process` slot into several
+bounded step methods when its execution model demands it — `CuAnytimeTask`'s
+`base`/`refine` is the merged precedent — but the surrounding
+`new`/`start`/`preprocess`/`postprocess`/`stop` + `Freezable` bracket stays 1:1.
+Mirroring is cheap: everything except `new`/`process` (and `freeze`/`thaw`)
+defaults to a no-op, which is fine for stateless work.
 
 ### 6. Every `Option` on the hot path is a branch — decide at compile time what can be decided at compile time
 
-Hot-path methods run every tick — `process`, or the step methods of an adapter such
-as `CuAnytimeTask` (an *anytime* task computes a coarse `base` result, then `refine`s
-it until told to stop). Each `Option` and each extra enum layer in their signatures is
+Hot-path methods run every tick — `process`, or the step methods of a task-like
+trait such as `CuAnytimeTask` (a standalone peer of `CuTask`, not an adapter over
+it: an *anytime* task computes a coarse `base` result, then `refine`s it until
+told to stop). Each `Option` and each extra enum layer in their signatures is
 an `if` the CPU evaluates and the branch predictor tracks on every single tick — even
 when 99% of the time the answer is "nothing there". Stack a few and you pay several
 predicted branches per tick for no work. Both consequences below were established in

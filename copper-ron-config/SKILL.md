@@ -112,8 +112,9 @@ bridges — opposite of sources/sinks. Undeclared channel names are rejected
 with `"Bridge '{}' does not declare a channel named '{}'"`.
 
 Missions (`MissionsConfig`, `config.rs`): `(id: "name")`. Any node/cnx/resource
-without a `missions:` list participates in **every** mission. When a node/cnx repeats
-across includes, mission sets are **unioned**, not overwritten.
+without a `missions:` list participates in **every** mission. When a cnx repeats
+across includes its mission sets are **unioned**; a repeated task/bridge/resource
+`id` is **first-wins** — the later duplicate is skipped entirely, missions included.
 
 Includes (`IncludesConfig`, `config.rs`):
 `(path, params?, missions?)`. `{{key}}` in the included file is textually substituted
@@ -155,7 +156,8 @@ Every message below is emitted verbatim; grep in `config.rs` to find the site.
   `"Section size...cannot be larger than slab size..."`,
   `"Duplicate logging codec id..."`.
 - Runtime block: `"Runtime rate target cannot be zero..."`,
-  `"exceeds ... 1_000_000 Hz"`, `"Thread pool id cannot be empty"`,
+  `"exceeds the supported maximum of ... Hz"` (the cap is `MAX_RATE_TARGET_HZ` =
+  1 GHz, interpolated into the message), `"Thread pool id cannot be empty"`,
   `"Thread pool '{}' must have at least 1 thread"`,
   `"real-time priority {} is out of range"`,
   `"niceness {} is out of range"`,
@@ -173,8 +175,11 @@ Every message below is emitted verbatim; grep in `config.rs` to find the site.
    **`true`** for bridges. Regular tasks ignore the field entirely.
 6. **`keyframe_interval` counts copperlists, not milliseconds.** With
    `runtime.rate_target_hz: 1`, `keyframe_interval: 100` → one keyframe every 100 s.
-7. **Missions merge, they don't override.** A cnx repeated across includes ends up
-   in the **union** of both mission lists.
+7. **Cnx missions merge; repeated ids don't.** A cnx repeated across includes ends
+   up in the **union** of both mission lists — and if either side omits `missions:`
+   (= all missions), the merge collapses to all missions. A task/bridge/resource
+   repeated across includes is deduplicated **first-wins**; the later definition is
+   silently skipped.
 8. **Never hand-format RON.** `just fmt` runs `fmtron` and is enforced in
    `fmt-check` (see `copper-workflow`). Diffs from manual edits will fail CI.
 9. **`monitor:` and `monitors:` are aliases** — either one parses, but a mixed file
