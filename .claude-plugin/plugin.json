@@ -1,7 +1,7 @@
 {
   "name": "copper-rs-skills",
-  "version": "0.1.0",
-  "description": "Agent skills for working in the copper-rs robotics runtime/SDK (the cu29 crates)",
+  "version": "1.0.0",
+  "description": "Agent skills for working in the Copper 1.0 robotics runtime/SDK (the cu29 crates)",
   "author": {
     "name": "copper-project"
   },

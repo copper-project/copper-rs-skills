@@ -29,12 +29,19 @@ stay accurate, so the bar for edits is: **does this match the current code?**
   generic Rust advice an agent already knows; keep the things that are surprising *here*
   (e.g. the `{}`-only logging macros, RON formatted by `fmtron`, no_std discipline).
 
+## Versioning
+
+Match the skill package's major and minor version to the Copper release line it
+describes. Use the patch number for skill-only corrections within that line. For
+example, skill versions `1.0.0` and `1.0.1` both target Copper `1.0`; guidance that
+depends on Copper `1.1` starts at skill version `1.1.0`.
+
 ## Making a change
 
 1. Edit the relevant `SKILL.md`. If you move content between skills, fix the
    cross-references in both.
 2. Re-read the affected skill end to end — it should make sense standalone.
-3. Bump `version` in `.claude-plugin/plugin.json` for a notable change.
+3. Apply the versioning policy above to `.claude-plugin/plugin.json`.
 4. Open a PR describing what changed in the codebase that prompted the skill update.
 
 ## Adding a new skill
