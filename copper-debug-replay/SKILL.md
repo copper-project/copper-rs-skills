@@ -159,12 +159,20 @@ copper_app.run_one_iteration(&mut sim_callback)?;
 
 ### Determinism regression harness
 
-`cu_caterpillar` ships the `determinism_record_and_resim` test (feature
-`determinism_ci`). CI runs it single-threaded with `COPPER_DETERMINISM_ITERS=N` to
-replay N times and byte-compare the resulting log against the original. If you
-change execution/replay behavior, expect to keep it green. See
-`examples/cu_caterpillar/src/determinism.rs`; it runs via `cargo test` with the
-`determinism_ci` feature — there is no dedicated `just` recipe for it.
+Follow `examples/cu_caterpillar/src/determinism.rs`:
+
+1. Record two multi-CopperList runs with identical simulated inputs and a mock clock;
+   explicitly reproduce time-derived metadata at simulated boundaries.
+2. Encode and byte-compare the complete CopperList and keyframe streams.
+3. Resim the first stream CopperList by CopperList: restore mock time from the recorded
+   source, inject boundary data, execute the code under test, then byte-compare both
+   output streams with the recording.
+
+Replaying one CopperList from its own keyframe, or injecting every recorded task output,
+is not a determinism regression: no drift can accumulate and the code under test may not
+run. Run past a keyframe interval. CI runs `determinism_record_and_resim` single-threaded
+with feature `determinism_ci`; `COPPER_DETERMINISM_ITERS` is the CopperList count, not a
+replay count (`COPPER_DETERMINISM_DT_TICKS` sets mock-clock cadence).
 
 ## Remote-debug (`debug.v1`)
 
@@ -266,7 +274,7 @@ each carrying `task_id`, `tov`, `metadata`, `payload`.
 | "What was the value of task X's output at cl N?" | `extract-copperlists --export-format json`, or `remote-debug timeline.get_cl` for live |
 | "Did task X even run?" | `fsck --dump-runtime-lifecycle`, or `extract-text-log` grep |
 | "Why does task X compute Y here?" | resim + inject inputs, step through with `remote-debug nav.step` |
-| "Is this non-determinism?" | resim + `COPPER_DETERMINISM_ITERS=N`, byte-compare logs |
+| "Is this non-determinism?" | record twice + resim, then byte-compare CopperLists and keyframes |
 | "How does state Z evolve over the run?" | `remote-debug state.watch` on the path |
 | "Bulk analysis / statistics" | Python `copperlist_iterator_unified_typed_py` |
 | "Perf regression breakdown" | `export-mcap` → external viewer, or `remote-debug health.stats` |
