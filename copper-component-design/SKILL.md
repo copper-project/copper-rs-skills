@@ -44,6 +44,14 @@ enforced on review regardless of correctness.
 - Payload types satisfy `CuMsgPayload` — see `copper-coding-style` for the derive
   set. Prefer reusing payloads from `components/payloads/cu_sensor_payloads/` when a
   standard type exists (IMU, image, point cloud) instead of inventing a new one.
+- Use `cu29::units` types such as `Length`, `Area`, and `Ratio` for physical quantities
+  in public payloads and APIs. Do not add bare numeric fields whose unit exists only in
+  a name or comment, or create local unit wrappers.
+- Reuse `CuRng` from `components/res/cu_rng/src/lib.rs` for randomized components and
+  inject it through `CuRngBundle`/`Resources`. Do not implement a component-local PRNG
+  or put a seed in a live message solely to make replay deterministic. If RNG progress
+  affects later outputs, preserve equivalent progress in `freeze`/`thaw`; reseeding
+  alone cannot resume a stream mid-run.
 - Config extraction: `.get::<T>` for scalars, `.get_value::<T>` for anything
   structured or enum-shaped. See `copper-ron-config` for the rule.
 - Do **not** stash inputs in `self` across cycles (api-flavor's no-cached-inputs
