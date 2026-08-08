@@ -10,10 +10,9 @@ agents (and humans) can be productive without re-deriving it every time.
 
 ## Compatibility
 
-Skill versions deliberately follow Copper compatibility. This `1.0.0` release targets
-the Copper `1.0` release line: the skill version's major and minor numbers identify the
-compatible Copper line, while its patch number identifies skill-only fixes. Guidance
-that depends on Copper `1.1` will therefore begin with skill version `1.1.0`.
+Skill versions deliberately follow Copper compatibility. This `1.1.0` release targets
+the Copper `1.1` release line: the skill version's major and minor numbers identify the
+compatible Copper line, while its patch number identifies skill-only fixes.
 
 Tested with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and
 [OpenAI Codex](https://openai.com/index/openai-codex/). Each `SKILL.md` follows
