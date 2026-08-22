@@ -78,6 +78,39 @@ preallocation, fixed capacity, compile-time sizing, and borrowing where practica
 Use `just rtsan-smoke` for a runnable hot-path change. Apply `copper-api-flavor` whenever
 the change introduces or reshapes a user-facing trait, adapter, or config policy.
 
+### Decide visibility before writing `pub`
+
+`doc/v1-api-surface.md` is the contract: every public item is `stable` (V1 semver),
+`experimental` (may change without a major bump), `internal` (public only because proc
+macros, generated code, tests, or rustdoc need a path), or `deprecated`. Already-internal:
+`CuRuntime` fields, `CuRuntimeParts`, `CuRuntimeBuilder`, the `*Instantiator` traits,
+`ProcessStepOutcome`/`ProcessStepResult`, the CopperList managers, generated mission
+modules, and tuple access through `copper_runtime_mut()`.
+
+Pick the narrowest rung that works:
+
+- `pub(crate)` — default. Nothing outside the crate needs it.
+- `#[doc(hidden)] pub` — the `internal` rung. Generated code or another crate needs the
+  path, users do not. This is how `planner` and `CuContext::from_runtime_metadata` stay
+  reachable while staying out of the contract.
+- plain `pub` — a real user-facing addition. Add it to `doc/v1-api-surface.md` under the
+  right label in the same commit.
+
+`just api-check` (inside `just pr-check`) diffs `cargo public-api` against the checked-in
+snapshots in `api/v1/`. Two mechanics decide whether it catches you:
+
+- **`#[doc(hidden)]` items are omitted from the snapshot.** A plain `pub` addition fails
+  the check with a diff; the same item marked `#[doc(hidden)]` passes silently. Use that
+  to express intent, not to quiet CI — `just api-update` is the deliberate gesture for an
+  intended change, and re-running it to erase an unexplained diff hides a real leak.
+- **Only `cu29`, `cu29-build`, `cu29-runtime`, `cu29-traits`, `cu29-derive`,
+  `cu29-export`, and `cu29-unifiedlog` are gated.** `cu29_clock`, `cu29_value`,
+  `cu29_log*`, `cu29_units`, `cu29_soa_derive`, `cu29_intern_strs`, and everything under
+  `components/` are not. Because `cu29::prelude` glob-re-exports several of them and the
+  `cu29` snapshot records only the re-export name, a new `pub` item in `cu29_clock`
+  reaches every user's prelude and still passes `api-check`. In those crates the label
+  decision is yours alone — no gate will make it for you.
+
 ### Treat `std`/`no_std` as an API axis
 
 Do not assume host APIs in shared crates. Consider embedded impact immediately when
