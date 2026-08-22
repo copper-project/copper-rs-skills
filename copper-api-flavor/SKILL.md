@@ -274,6 +274,9 @@ Ask, honestly:
    → one `CuResult<Status>` layer: `Err(CuError)` for failure, plain variants for
    controlled outcomes. Does a runtime `Option` encode a per-task-type capability?
    → move it into a generic/associated type so it's resolved at compile time.
+7. Does every new `pub` item belong in the user's contract? → if it exists only so
+   generated code has a path, it is `#[doc(hidden)] pub`, not `pub`; see
+   `copper-core-dev` for the visibility ladder and `doc/v1-api-surface.md`.
 
 Only after all of these are clean does the API "feel like copper-rs". Reviews from the
 maintainer (`gbin`) enforce these on the diff line, not in prose — so it's cheaper

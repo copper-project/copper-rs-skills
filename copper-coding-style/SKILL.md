@@ -26,7 +26,8 @@ names* use hyphens (`cu29-runtime`); the *import path* is the underscore form. T
 `cu29::prelude::*` glob is the canonical app import surface — import from it in app/task
 code, not from deep module paths. The V1 public-API contract is pinned in
 `doc/v1-api-surface.md` and gated by `just api-check`; changing a public signature requires
-a deliberate `just api-update`.
+a deliberate `just api-update`. Before writing `pub` at all, take the visibility ladder in
+`copper-core-dev`.
 
 ## Imports
 
