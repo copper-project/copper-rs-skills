@@ -29,6 +29,19 @@ code, not from deep module paths. The V1 public-API contract is pinned in
 a deliberate `just api-update`. Before writing `pub` at all, take the visibility ladder in
 `copper-core-dev`.
 
+Functions name the concrete operation and the thing it acts on — `assemble_steps`,
+not `finish_plans`. Real examples: `build_culist_tuple`, `restore_keyframe`,
+`stop_all_tasks`, `update_copperlist_rate`. Filler verbs are absent from the
+workspace (zero `do_`, `perform_`, `execute_`, `manage_`, `helper_`); keep it that
+way. Accessors read bare (`payload()`, `tov()`, `enabled()`) — the `get_` family in
+`core/cu29_runtime/src/config.rs` and the graph API is legacy, extend it only inside
+those types. Mutators keep `set_`/`clear_`, the mutable twin takes a `_mut` suffix,
+predicates use `is_`. Constructors are `new` then `new_with_<thing>`; `with_<thing>`
+is builder chaining only; `build_*` means proc-macro codegen emitting `TokenStream`
+in `cu29_derive`. Reuse the established verb pairs instead of coining synonyms:
+`freeze`/`thaw`, `encode`/`decode`, `start`/`stop`,
+`preprocess`/`process`/`postprocess`, `send`/`receive`.
+
 ## Imports
 
 Granular, one item per path, grouped as `crate::` → external crates → `core::`/`alloc::`,
