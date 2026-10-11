@@ -142,3 +142,33 @@ rendering commands, use `copper-workflow`.
 
 These are the mental-model constraints an app or component author needs. The actionable
 rules and code map for modifying the runtime live in `copper-core-dev`.
+
+## Orientation sources and examples
+
+Start with `README.md`, `justfile`, and `CONTRIBUTING.md` in the Copper checkout.
+Source authority is code > rustdoc/API > wiki/book narrative. The primary application
+surface is `core/cu29/src/lib.rs` and its prelude; use `copper-core-dev` for the
+implementation map.
+
+The sibling wiki at `../copper-rs.wiki/` provides `Copper-Runtime-Overview.md`,
+`Copper-Application-Overview.md`, `Copper-RON-Configuration-Reference.md`,
+`Task-Lifecycle.md`, `Resources.md`, `Project-Templates.md`, `Supported-Platforms.md`,
+and `Available-Components.md`. The book at `../copper-rs-book/book/src/` provides
+`ch04-project-structure.md`, `ch13-logging-replay.md`, `ch18-justfile.md`, and
+`ch21-resources.md`.
+
+Use executable examples to understand integration:
+
+- `examples/cu_caterpillar/`: minimal realistic app, logging, determinism, and resim.
+- `examples/cu_resources_test/`: owned/shared resources, bridges, and missions.
+- `examples/cu_rp2350_skeleton/`: embedded skeleton.
+- [cu_flight_controller](https://github.com/copper-project/extra-examples/tree/master/examples/cu_flight_controller):
+  complex resources, simulation, and selective logging.
+- [cu_rp_balancebot](https://github.com/copper-project/extra-examples/tree/master/examples/cu_rp_balancebot):
+  simulation/demo app for trying Copper without hardware.
+
+Caterpillar, flight controller, and balancebot are the default orientation and
+integration regression references. Project templates live under
+`support/cargo_cunew/templates/{cu_project,cu_full}/`; support tooling lives under
+`support/`. For embedded scope inspect `.github/workflows/reusable-embedded.yml`,
+`support/ci/embedded_crates.py`, and `components/res/cu_micoairh743/`.

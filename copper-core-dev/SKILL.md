@@ -15,7 +15,7 @@ Use this skill for changes to the runtime and SDK implementation, not for ordina
 application or component authoring. Read `copper-arch` first when the task depends on the
 task-graph, message-flow, resource, mission, or replay mental model.
 
-The repository root `AGENTS.md` is the authoritative longer companion. When sources
+The repository root `AGENTS.md` holds always-on policy and skill routing. When sources
 disagree, use **code > rustdoc/API > wiki/book narrative**. The default branch is
 `master`.
 
@@ -64,8 +64,9 @@ A robot's component graph is known ahead of time. Prefer types, compile-time wir
 proc-macro/codegen enforcement over runtime string-keyed lookup, service discovery, or
 dynamic topology. Treat generated code as an intended architecture surface.
 
-Do not add hidden environment-variable APIs. Prefer constants for implementation choices.
-For a genuine user-facing choice, decide whether it belongs in RON config, but require a
+Do not introduce environment-variable APIs unless explicitly requested. Prefer constants
+for implementation choices.
+For a genuine user-facing choice, ask whether it belongs in RON config, but require a
 real use case before expanding the schema.
 
 ### Protect the real-time path
@@ -74,6 +75,9 @@ Do not allocate on the real-time stack or path. Treat a new allocation, copy,
 serialization pass, blocking operation, or latency increase there as a design-level
 change. Keep offline and debug-only costs feature-gated away from the hot path, and use
 preallocation, fixed capacity, compile-time sizing, and borrowing where practical.
+Require explicit user approval before accepting added hot-path copies, allocation,
+serialization, or latency. Startup allocation volume also matters: embedded targets
+may have extremely small memory budgets.
 
 Use `just rtsan-smoke` for a runnable hot-path change. Apply `copper-api-flavor` whenever
 the change introduces or reshapes a user-facing trait, adapter, or config policy.

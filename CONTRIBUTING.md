@@ -9,6 +9,7 @@ stay accurate, so the bar for edits is: **does this match the current code?**
 - **Authority order when sources disagree: code > rustdoc/API > wiki/book narrative.**
   Verify a claim against the source before writing it down; cite concrete paths
   (`core/cu29_runtime/src/cutask.rs`) and `just` targets rather than vague guidance.
+  Cite files without line numbers, which drift as the source changes.
 - **One concern per skill.** Keep the split clean:
   - `copper-arch` — runtime architecture & execution model
   - `copper-core-dev` — core runtime/SDK development
@@ -24,7 +25,7 @@ stay accurate, so the bar for edits is: **does this match the current code?**
 - **Each skill is a directory with a `SKILL.md`.** The YAML frontmatter needs a `name`
   (must equal the directory name) and a `description` written so an agent can decide
   relevance from it alone — lead with what the skill is and the concrete triggers ("Use
-  when …").
+  when …"). Include at least one top-level Markdown heading in the body.
 - **Keep it tight.** Prefer the smallest set of high-signal, repo-specific facts. Drop
   generic Rust advice an agent already knows; keep the things that are surprising *here*
   (e.g. the `{}`-only logging macros, RON formatted by `fmtron`, no_std discipline).
