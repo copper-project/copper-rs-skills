@@ -2,7 +2,8 @@
 name: copper-workflow
 description: >-
   Build, test, and debugging workflow for the copper-rs (`cu29`) repo. Use when running
-  CI-aligned `just` targets (pr-check/lint/test/std-ci/nostd-ci/api-check), setting up the
+  CI-aligned `just` targets (pr-check/lint/test/std-ci/nostd-ci/api-check), adding or
+  reviewing justfile recipes, setting up the
   environment to make those pass, rendering the DAG, expanding the runtime macro, or
   debugging a running/recorded app via the unified `.copper` log: extracting copperlists,
   resim (deterministic replay), the remote-debug API, or the Python export. For
@@ -14,6 +15,19 @@ description: >-
 Prefer `just` targets over ad-hoc cargo invocations — they mirror
 `.github/workflows/general.yml`. Run `just fmt` after every edit pass. Before pushing, run
 the narrowest fitting target; default to `just pr-check`. Default branch is `master`.
+
+## Adding justfile recipes
+
+Add recipes only for reusable end-user operations or general development workflows
+(build, format, lint, test suites, replay, export). Before adding one, identify who will
+reuse it and when; extend or parameterize an existing recipe when it already serves that
+workflow. Keep workspace-wide workflows in the root `justfile` and app-specific ones in
+the app's `justfile`.
+
+Do not add one-shot recipes for the current patch, debugging session, or a specific unit
+test. Run a focused command such as `cargo test -p <crate> <test_filter>` directly instead
+of committing a recipe for it. A test recipe should represent a maintained suite or
+recurring validation workflow, rather than merely aliasing an individual test.
 
 ## Build & verification
 
