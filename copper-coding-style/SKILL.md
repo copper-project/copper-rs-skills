@@ -2,7 +2,8 @@
 name: copper-coding-style
 description: >-
   Coding style and conventions for the copper-rs (`cu29`) Rust workspace. Use when
-  writing, editing, or reviewing Rust code in this repo so it matches house style:
+  writing, editing, or reviewing Rust code, user documentation, or console/UI output
+  in this repo so it matches house style:
   naming, import grouping, `CuResult`/`CuError` error handling, std/no_std discipline,
   the interning `debug!/info!/warning!/error!` logging macros, doc comments/doctests,
   clippy gotchas, payload trait bounds, and test layout. For runtime architecture see
@@ -101,7 +102,8 @@ include a ` ```rust ` `# Example` block. **Doctests run in CI** (`cargo test --d
 ## Clippy gotchas that recur here
 
 All under `--deny warnings`: no redundant same-type casts (`x as u64` when `x: u64`);
-prefer `.is_multiple_of(n)` over `% n == 0`. `#[allow(dead_code)]` is tolerated; other
+prefer `.is_multiple_of(n)` over `% n == 0`; collapse nested `if`/`if let` into
+`if let` chains when `collapsible_if` applies. `#[allow(dead_code)]` is tolerated; other
 blanket `allow`s are rare — justify them.
 
 ## Payloads
@@ -121,3 +123,23 @@ crates that can't run in parallel are pinned to the `serial-integration` test gr
 the **determinism regression test** (`determinism_record_and_resim`, feature
 `determinism_ci`) that CI runs single-threaded with `COPPER_DETERMINISM_ITERS` — if you
 change runtime execution/replay behavior, expect to keep it green.
+
+## Documentation scope
+
+Component and crate READMEs are user documentation, including on crates.io. Keep
+repository CI commands, maintainer regression recipes, and generic Cargo test
+instructions in `CONTRIBUTING.md`. Include commands in user docs when they help
+configure, run, or use the component.
+
+Describe behavior, requirements, and errors directly. Avoid lists of absent or
+unrelated features and implementation history. Keep generic component docs generic;
+put device-specific configuration, lifecycle, and wiring in the device's docs or
+integration example. Apply this to READMEs, rustdoc, code comments, and PR descriptions.
+For behavior changes, follow the docs-sync rule in `copper-workflow`.
+
+## Console and UI
+
+Assume Unicode-capable terminals. Generate unit symbols once and reuse them across
+consumers; use Unicode mathematical notation. Use Catppuccin Mocha for interactive
+terminals, UIs, prototypes, and diagrams; avoid cyan, amber, and Copper color. Omit
+ANSI styling from recorded logs, machine exports, and redirected output by default.

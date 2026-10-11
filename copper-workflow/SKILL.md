@@ -3,7 +3,7 @@ name: copper-workflow
 description: >-
   Build, test, and debugging workflow for the copper-rs (`cu29`) repo. Use when running
   CI-aligned `just` targets (pr-check/lint/test/std-ci/nostd-ci/api-check), adding or
-  reviewing justfile recipes, setting up the
+  reviewing justfile recipes, publishing stable releases, setting up the
   environment to make those pass, rendering the DAG, expanding the runtime macro, or
   debugging a running/recorded app via the unified `.copper` log: extracting copperlists,
   resim (deterministic replay), the remote-debug API, or the Python export. For
@@ -14,7 +14,13 @@ description: >-
 
 Prefer `just` targets over ad-hoc cargo invocations — they mirror
 `.github/workflows/general.yml`. Run `just fmt` after every edit pass. Before pushing, run
-the narrowest fitting target; default to `just pr-check`. Default branch is `master`.
+the narrowest fitting target; default to `just pr-check`. For lint/build changes run at
+least `just lint`; include `just nostd-ci` when practical for shared/runtime surfaces.
+Default branch is `master`.
+
+Before starting a work pass, remove generated `Cargo.lock` files unless explicitly
+asked otherwise; resolving without lockfiles matches CI. Do not remove them as final
+cleanup.
 
 ## Adding justfile recipes
 
@@ -64,39 +70,11 @@ GUI/GStreamer/pcap crates and python-task tests:
 If this list ever fails, `support/docker/Dockerfile.ubuntu` is the source of truth — the
 snapshot above will drift; the pointer will not.
 
-## Logging & debugging — the unified log is the primary tool
+## Logging & debugging
 
-**Do not add ad-hoc `println!`/custom text dumps to inspect message values.** Copper already
-records task messages as CopperLists when task logging is on — extract them. For temporary
-instrumentation use the structured macros `debug!`/`info!`/`warning!`/`error!` (interned text
-logs; see the `copper-coding-style` skill for their `{}`-only syntax), never bespoke
-text formats.
-
-Debugging escalation ladder (cheapest first):
-1. **Extract recorded data** — the app's logreader binary (built on `cu29_export::run_cli`):
-   `extract-copperlists` (message payloads, `--export-format json|csv`),
-   `extract-text-log <string-index>` (structured logs; index is usually
-   `target/debug/cu29_log_index`), `fsck`, `export-mcap`. See
-   `examples/cu_caterpillar/src/logreader.rs` + its `justfile` (`just cl`, `just logreader`,
-   `just mcap`). The logreader uses `gen_cumsgs!("copperconfig.ron")` to generate the
-   decode type for that config.
-2. **Resim (deterministic replay)** — replay a recorded log back through the app. It's just
-   the normal macro in sim mode: `#[copper_runtime(config=..., sim_mode = true)]`. Keyframes
-   (via `freeze`/`thaw`) let replay resume from frozen task state. See
-   `examples/cu_caterpillar/src/resim.rs` + `just resim`. CLI contract for replay binaries:
-   `--log-base` (recorded log), `--replay-log-base` (output), `--debug-base` (switches to
-   replay-backed remote-debug server). Prefer `cu29::replay::ReplayCli`, or `ReplayArgs` with
-   `#[command(flatten)]` when the binary has extra CLI (missions etc.).
-   **CLI args only — do not add parallel env-var fallbacks for the launch contract.**
-3. **Remote debug API** (`core/cu29_runtime/src/remote_debug.rs`, feature `remote-debug`) —
-   arbitrary state inspection across the timeline: `nav.seek/step/replay`, `timeline.get_cl`,
-   `state.inspect/read/search`, `schema.get_type/get_payload_map`. See
-   `examples/cu_remote_debug_session/`.
-4. **Python** (`cu29_export`, `python` feature) for programmatic offline analysis:
-   `struct_log_iterator_unified/bare` — preferred over scraping rebuilt text.
-
-If message data is missing from a log, check config first: global
-`logging: (enable_task_logging: true)` and node-level `logging: (enabled: true)`.
+Use `copper-debug-replay` before adding instrumentation: extract recorded CopperLists
+or structured text logs, then use resim, remote debug, or Python queries as needed.
+Use `copper-coding-style` for structured logging macro syntax.
 
 ## Other gotchas
 
@@ -106,7 +84,10 @@ If message data is missing from a log, check config first: global
 - The `.copper` log is written as slabs: a base `app.copper` plus `app_0.copper`,
   `app_1.copper`... Tools take the *base* path and find the slabs.
 - `build.rs` in apps exports `LOG_INDEX_DIR` (`OUT_DIR`) so the interned-string index can
-  be reconstructed. Many examples write logs under their own `logs/` dir.
+  be reconstructed. Examples must write logs under their own `logs/` directory, never
+  the Copper repository's root `logs/`. App builders own log setup through
+  `.with_log_path(...)`; examples may inject a custom logger with `.with_logger(...)`.
+  A unified-log slab can exist even when task-message logging is disabled.
 - Feature flags on `cu29` worth knowing: `std`, `signal-handler`, `textlogs`, `units`
   (default set), plus `reflect`, `remote-debug`, `safety-ids`, `parallel-rt` (requires std),
   `rtsan`, `async-cl-io`, `high-precision-limiter`, `sysclock-perf`, `defmt` (no_std logging).
@@ -114,3 +95,10 @@ If message data is missing from a log, check config first: global
   `.config/_typos.toml`. Update those rather than disabling the checks.
 - Docs sync: when a change in `core/` alters documented behavior, the maintainer expects
   follow-up PRs to the sibling `../copper-rs.wiki` and `../copper-rs-book` checkouts.
+
+## Stable releases
+
+When publishing a stable minor or patch release, including a backport, complete the
+GitHub release checklist in the Copper checkout's `RELEASING.md`. Publish an entry for
+the exact release tag using the global Copper Release Notes; keep Latest on the newest
+stable version.

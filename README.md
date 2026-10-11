@@ -10,7 +10,7 @@ agents (and humans) can be productive without re-deriving it every time.
 
 ## Compatibility
 
-Skill versions deliberately follow Copper compatibility. This `1.1.0` release targets
+Skill versions deliberately follow Copper compatibility. This `1.1.2` release targets
 the Copper `1.1` release line: the skill version's major and minor numbers identify the
 compatible Copper line, while its patch number identifies skill-only fixes.
 
@@ -51,6 +51,17 @@ For a private clone, pass the local path to `/plugin marketplace add`.
 
 Clone the repo and symlink each skill folder into your agent's skills
 directory. Every skill is just a directory with a `SKILL.md`.
+
+For Codex, use `.agents/skills/<skill>` in a project or `~/.agents/skills/<skill>`
+for user-wide discovery. Symlink each skill folder to keep this checkout as the
+single source; use copies or pinned distribution when collaborators need a
+self-contained setup. See the [Codex skills documentation](https://learn.chatgpt.com/docs/build-skills).
+
+`AGENTS.md` can require reading skills by task and provide a direct-path fallback
+such as `../copper-rs-skills/<skill>/SKILL.md`. Referencing a path does not register
+or install a skill. Keep always-on repository policy in `AGENTS.md` and detailed
+architecture, recipes, and conventions in the skills. Read only the skills relevant
+to the task; avoid loading all nine for every request.
 
 ## Skills
 

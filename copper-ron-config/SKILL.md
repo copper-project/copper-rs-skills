@@ -3,7 +3,7 @@ name: copper-ron-config
 description: >-
   Deep schema reference for `copperconfig.ron`. Use when reading, writing, or
   debugging a copper-rs config file: every top-level key, every per-task/per-cnx/per-bridge
-  field, `ComponentConfig` accessor rules (`get::<T>` vs `get_value::<T>`), and the exact
+  field, typed `ComponentConfig` accessor rules (`get` vs `get_value`), and the exact
   validation errors the parser emits. All claims cite
   `core/cu29_runtime/src/config.rs`. For the runtime architecture and task-graph mental
   model see `copper-arch`; for `fmtron` formatting and the `just fmt` cycle see
