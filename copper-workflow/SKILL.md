@@ -102,3 +102,9 @@ When publishing a stable minor or patch release, including a backport, complete 
 GitHub release checklist in the Copper checkout's `RELEASING.md`. Publish an entry for
 the exact release tag using the global Copper Release Notes; keep Latest on the newest
 stable version.
+
+## Report presentation
+
+Generated reports and diagrams follow the terse UI requirements in
+[`copper-coding-style`](../copper-coding-style/SKILL.md#generated-reports-and-ui):
+short labels and metrics, no explanatory boilerplate, pure black canvas.

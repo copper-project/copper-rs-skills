@@ -140,6 +140,20 @@ For behavior changes, follow the docs-sync rule in `copper-workflow`.
 ## Console and UI
 
 Assume Unicode-capable terminals. Generate unit symbols once and reuse them across
-consumers; use Unicode mathematical notation. Use Catppuccin Mocha for interactive
+consumers; use Unicode mathematical notation. Use Catppuccin Mocha accents with pure black canvases for interactive
 terminals, UIs, prototypes, and diagrams; avoid cyan, amber, and Copper color. Omit
 ANSI styling from recorded logs, machine exports, and redirected output by default.
+
+## Generated reports and UI
+
+Keep generated reports, SVGs, charts, and console/UI output terse: labels, metrics,
+statuses, errors, and conflicts. Do not insert explanatory sentences, architecture
+lessons, generic caveats, or repeated limitations. Users already know how to read
+performance reports. Explanations belong in documentation when requested.
+
+Use short headings and summaries: `Execution`, `Resource Overlaps`,
+`No Resource Conflicts`, `Schedule`, `Pipeline`. Never append explanations about
+GPU detection, CopperList admission/recycling, timing exclusions, or how to read
+columns to every report. Preserve the actual measurements and operation/worker/list
+labels. Use a pure black (`#000000`) canvas for dark reports and diagrams, with
+high-contrast text on both light cards and dark panels.
