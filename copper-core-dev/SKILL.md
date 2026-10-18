@@ -71,16 +71,14 @@ real use case before expanding the schema.
 
 ### Protect the real-time path
 
-Do not allocate on the real-time stack or path. Treat a new allocation, copy,
-serialization pass, blocking operation, or latency increase there as a design-level
-change. Keep offline and debug-only costs feature-gated away from the hot path, and use
-preallocation, fixed capacity, compile-time sizing, and borrowing where practical.
-Require explicit user approval before accepting added hot-path copies, allocation,
-serialization, or latency. Startup allocation volume also matters: embedded targets
-may have extremely small memory budgets.
+Keep the real-time path free of heap allocation and blocking; feature-gate offline
+and debug-only costs. Require explicit user approval before accepting added hot-path
+copies, allocation, serialization, or latency. Budget startup memory for embedded
+targets too.
 
-Use `just rtsan-smoke` for a runnable hot-path change. Apply `copper-api-flavor` whenever
-the change introduces or reshapes a user-facing trait, adapter, or config policy.
+For SIMD, compile-time capacities, seeded randomness, and anytime algorithms, see
+`copper-component-design`. Verify runnable hot-path changes with `just rtsan-smoke`
+(`justfile`); apply `copper-api-flavor` for new or reshaped traits, adapters, or policies.
 
 ### Decide visibility before writing `pub`
 

@@ -209,50 +209,18 @@ bounded step methods when its execution model demands it — `CuAnytimeTask`'s
 Mirroring is cheap: everything except `new`/`process` (and `freeze`/`thaw`)
 defaults to a no-op, which is fine for stateless work.
 
-### 6. Every `Option` on the hot path is a branch — decide at compile time what can be decided at compile time
+### 6. Resolve static choices at compile time; keep status signaling flat
 
-Hot-path methods run every tick — `process`, or the step methods of a task-like
-trait such as `CuAnytimeTask` (a standalone peer of `CuTask`, not an adapter over
-it: an *anytime* task computes a coarse `base` result, then `refine`s it until
-told to stop). Each `Option` and each extra enum layer in their signatures is
-an `if` the CPU evaluates and the branch predictor tracks on every single tick — even
-when 99% of the time the answer is "nothing there". Stack a few and you pay several
-predicted branches per tick for no work. Both consequences below were established in
-the `CuAnytimeTask` review (copper-rs PR #1205).
+- Encode per-task capabilities in generics/associated types, not runtime `Option`s.
+  `CuAnytimeTask::Quality` selects `Quality` or `()`; `AnytimeStatus<Q>` carries it
+  directly. A quality target on a `()` task fails at compile time
+  (`core/cu29_runtime/src/cutask_anytime.rs`).
+- Return `CuResult<Status>`: failures are `Err(CuError)`; controlled stops are status
+  variants. Do not add redundant `Option<Status>` or hide errors in
+  `Aborted(Option<CuError>)`.
 
-**One layer of signaling.** A hot-path method returns `CuResult<Status>`:
-`Err(CuError)` means a real failure, a plain status variant means a controlled
-outcome (converged, aborted, ...). Never nest the two layers:
-
-```rust
-fn refine(&mut self) -> CuResult<Option<Status>>;   // BAD — two ways to say "nothing"
-enum Status { Aborted(Option<CuError>), /* … */ }   // BAD — an error hiding in a variant
-fn refine(&mut self) -> CuResult<Status>;           // GOOD — one layer
-```
-
-A controlled stop is a variant, not an error; a failure is `Err`, not a variant.
-
-**Generics instead of `Option` fields.** The maintainer's standing rule: anything
-that *can* be decided at compile time *must* be decided at compile time. When a
-capability varies by *task type* — not per tick — encode it in the type system, not
-in a runtime `Option`.
-The anytime trait's quality report is the canonical example: instead of
-`Option<Quality>` in the status, the status is generic —
-
-```rust
-pub enum AnytimeStatus<Q> {
-    Improved(Q),
-    Converged(Q),
-    Aborted,
-}
-
-// on the trait:
-type Quality: Copy + PartialOrd;   // a normalized ratio, or () if the task can't score
-```
-
-Tasks that can score their result use a quality type; tasks that can't use `()`.
-Monomorphization compiles the branch away, and misconfiguration (a quality target on
-a `()` task) becomes a compile error instead of a runtime check.
+For task implementation rules (SIMD, fixed capacity, seeded randomness, anytime
+work), see `copper-component-design`.
 
 ## The taste check (before you send the PR)
 

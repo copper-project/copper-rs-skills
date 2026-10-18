@@ -1,11 +1,11 @@
 ---
 name: copper-component-design
 description: >-
-  Recipe book for implementing a new copper-rs component — a `CuSrcTask`,
-  `CuTask`, `CuSinkTask`, or `CuBridge`. Use when scaffolding a new crate under
-  `components/` (or an app-local task): what the skeleton looks like, which
-  lifecycle hooks to override, how to read the node's RON `config:` block, how
-  to declare resource lifetimes, when `Freezable` needs a real impl vs the default.
+  Recipe book for implementing and optimizing copper-rs components — `CuSrcTask`,
+  `CuTask`, `CuSinkTask`, or `CuBridge`. Use when creating or changing a component
+  under `components/` (or an app-local task): lifecycle, RON config, resources,
+  `Freezable`, allocation-free SIMD-friendly algorithms, seeded randomness, and
+  anytime tasks.
   All patterns are anchored to real crates in `components/`. Complements
   `copper-arch` (traits + macro overview), `copper-api-flavor` (the taste
   rules for user-facing traits), and `copper-coding-style` (derives, error
@@ -28,8 +28,8 @@ Trait anchors (**do not re-derive here**, cite them):
   `examples/cu_resources_test/src/resources.rs`)
 
 Before writing anything new, read `copper-api-flavor` — the rules there (in-place
-`&mut` outputs, `get_value` for enums, no cached inputs, payload/`Tov` placement,
-no `Option`/nested-enum branching on the hot path, `CuTask` lifecycle) will get
+`&mut` outputs, `get_value` for enums, borrowed inputs, payload/`Tov` placement,
+compile-time capabilities, single-layer status signaling, `CuTask` lifecycle) will get
 enforced on review regardless of correctness.
 
 ## Cross-cutting checklist (applies to all four roles)
@@ -47,15 +47,10 @@ enforced on review regardless of correctness.
 - Use `cu29::units` types such as `Length`, `Area`, and `Ratio` for physical quantities
   in public payloads and APIs. Do not add bare numeric fields whose unit exists only in
   a name or comment, or create local unit wrappers.
-- Reuse `CuRng` from `components/res/cu_rng/src/lib.rs` for randomized components and
-  inject it through `CuRngBundle`/`Resources`. Do not implement a component-local PRNG
-  or put a seed in a live message solely to make replay deterministic. If RNG progress
-  affects later outputs, preserve equivalent progress in `freeze`/`thaw`; reseeding
-  alone cannot resume a stream mid-run.
 - Config extraction: `.get::<T>` for scalars, `.get_value::<T>` for anything
   structured or enum-shaped. See `copper-ron-config` for the rule.
-- Do **not** stash inputs in `self` across cycles (api-flavor's no-cached-inputs
-  rule). The copperlist already holds them.
+- Borrow inputs the copperlist owns. Retain only the per-job state needed when work
+  outlives it (`CuAnytimeTask::base`); see `copper-api-flavor`.
 
 **Stamping `tov`.** `Tov` means the **physical time of validity** of a measurement —
 when the phenomenon was true in the world, not when the code ran. Three rules:
@@ -74,6 +69,32 @@ when the phenomenon was true in the world, not when the code ran. Three rules:
   timestamps and stamps `Tov::Range` over the sweep. Where no sample clock is
   available, `ctx.now()` is the accepted best-effort fallback —
   `cu_mpu9250/src/lib.rs` does exactly that.
+
+## Task performance and determinism
+
+- **SIMD before threads.** Make inner loops vectorizable; use Copper's
+  `#[derive(Soa)]` for contiguous field arrays (`core/cu29_soa_derive/src/lib.rs`).
+  Inspect optimized assembly for the target to verify vectorization before adding
+  multithreading.
+- **No heap allocation on the real-time path.** Encode capacities in const generics
+  (`Task<const N: usize>`, `[T; N]`); initialize and reuse scratch storage before the
+  loop. Bound lengths and handle capacity exhaustion. `Vec::push`/`extend` can allocate
+  or reallocate when capacity is exceeded; runtime collection growth breaks timing
+  guarantees.
+- **Seed randomness.** Inject explicitly seeded `CuRng` through
+  `CuRngBundle`/`Resources` (`components/res/cu_rng/src/lib.rs`); no component-local
+  PRNG or seed added to live messages solely for replay. Preserve equivalent RNG
+  progress in `freeze`/`thaw` when it affects later outputs; a seed alone cannot
+  resume a stream mid-run.
+- **Yield converging work.** If an algorithm can publish a usable result before
+  convergence, consider `CuAnytimeTask`: `base` publishes an initial result; each
+  bounded `refine` preserves the best-so-far output and reports quality/status.
+  Let RON `anytime:` policy set `time_budget_ms`, `max_refines`, and `quality_target`
+  so the runtime stops at sufficient quality and frees compute for other tasks.
+  Budget checks occur **between calls**; bound `base` and every `refine`.
+  See `core/cu29_runtime/src/cutask_anytime.rs`,
+  `components/tasks/cu_rrt_star/src/lib.rs`, and
+  `examples/cu_anytime_rrt_star/copperconfig.ron`.
 
 ## `CuSrcTask` — sensors, data origins
 
